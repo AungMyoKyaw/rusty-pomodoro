@@ -230,7 +230,7 @@ pub fn refresh(state: &State) {
   if show {
     let _ = ui.show();
     ui.window().set_minimized(false);
-    if std::env::var_os("TOMITO_BENCHMARK").is_none() {
+    if config::var_os("RUSTY_POMODORO_BENCHMARK").is_none() {
       crate::slint_native::activate();
       ui.window().with_winit_window(|w| w.focus_window());
     }
@@ -353,7 +353,7 @@ fn save(state: &State) {
 }
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
   // Both values specified: SLINT_BACKEND cannot silently substitute a GPU renderer.
-  let benchmark = std::env::var_os("TOMITO_BENCHMARK").is_some();
+  let benchmark = config::var_os("RUSTY_POMODORO_BENCHMARK").is_some();
   let smoke = std::env::args().any(|a| a == "--smoke" || a == "--smoke-expiry");
   slint::BackendSelector::new()
     .backend_name("winit".into())
@@ -362,14 +362,14 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     .select()?;
   let ui = PortableWindow::new()?;
   ui.set_native_features(cfg!(target_os = "macos"));
-  let dir = std::env::var_os("TOMITO_CONFIG_DIR")
+  let dir = config::var_os("RUSTY_POMODORO_CONFIG_DIR")
     .map(std::path::PathBuf::from)
     .unwrap_or_else(|| config::config_dir("tomito-rs"));
   if smoke
-    && (std::env::var_os("TOMITO_CONFIG_DIR").is_none()
+    && (config::var_os("RUSTY_POMODORO_CONFIG_DIR").is_none()
       || (dir.exists() && std::fs::read_dir(&dir)?.next().is_some()))
   {
-    return Err("Smoke tests require an explicitly set, empty TOMITO_CONFIG_DIR".into());
+    return Err("Smoke tests require an explicitly set, empty RUSTY_POMODORO_CONFIG_DIR".into());
   }
   let app = App::new(
     Settings::load(&dir.join("settings.conf")),
@@ -449,7 +449,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(s) = weak.upgrade() {
       {
         let mut shell = s.borrow_mut();
-        let target = shell.app.stats.path().with_file_name("tomito-stats.csv");
+        let target = shell
+          .app
+          .stats
+          .path()
+          .with_file_name("rusty-pomodoro-stats.csv");
         shell.app.status = match shell.app.stats.export_csv(&target) {
           Ok(()) => format!("Exported to {}", target.display()),
           Err(e) => format!("Export failed: {e}"),
@@ -503,7 +507,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
   });
   ui.show()?;
-  match std::env::var("TOMITO_BENCHMARK_SCENARIO").as_deref() {
+  match config::var("RUSTY_POMODORO_BENCHMARK_SCENARIO").as_deref() {
     Ok("running") => state.borrow_mut().app.toggle(),
     Ok("statistics") => {
       state.borrow_mut().app.panel = Panel::Statistics;
@@ -593,7 +597,7 @@ fn start_smoke(state: State) {
       .app
       .stats
       .path()
-      .with_file_name("tomito-stats.csv")
+      .with_file_name("rusty-pomodoro-stats.csv")
       .exists());
     ui.set_confirm_reset(true);
     ui.invoke_reset_history();

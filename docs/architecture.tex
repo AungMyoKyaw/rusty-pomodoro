@@ -1,181 +1,191 @@
-% =====================================================================
-%  Tomito-RS -- Visual Architecture Guide
-%  Build: pdflatex architecture.tex  (twice, for the ToC)
-% =====================================================================
-\documentclass[11pt,a4paper]{article}
-
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{lmodern}
-\usepackage{microtype}
-\usepackage{geometry}
-\usepackage{graphicx}
-\usepackage[table]{xcolor}
-\usepackage{booktabs}
-\usepackage{array}
-\usepackage{longtable}
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{float}
-\usepackage{caption}
-\usepackage{enumitem}
-\usepackage{fancyhdr}
-\usepackage{listings}
-\usepackage{hyperref}
+\documentclass[10pt]{article}
+\usepackage[margin=1cm]{geometry}
 \usepackage{tikz}
-\usepackage{pdflscape}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, shapes.multipart, fit, backgrounds, calc, decorations.pathreplacing, patterns}
 
-\usetikzlibrary{positioning,shapes.geometric,shapes.arrows,shapes.symbols,
-                arrows,calc,fit,backgrounds,decorations.pathmorphing,
-                decorations.markings,decorations.pathreplacing,patterns,
-                matrix,chains,backgrounds}
-
-\geometry{top=22mm,bottom=20mm,left=20mm,right=20mm}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{0.55em}
-\renewcommand{\arraystretch}{1.15}
-
-% ---------- palette (taken from src/theme.rs) ----------
-\definecolor{ink}      {HTML}{1B1418}
-\definecolor{accent}   {HTML}{E84A5F}   % Flamingo
-\definecolor{mint}     {HTML}{3FC1A0}
-\definecolor{mandarin} {HTML}{F28C28}
-\definecolor{pastel}   {HTML}{A8C6E8}
-\definecolor{panel}    {HTML}{2A1F24}
-\definecolor{paper}    {HTML}{FBF9FA}
-\definecolor{softink}  {HTML}{6E6068}
-
-\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=mint,citecolor=accent}
-
-% ---------- theme swatch colours (from src/theme.rs) ----------
-\definecolor{t0a}{HTML}{E84A5F} \definecolor{t0b}{HTML}{1B1418}
-\definecolor{t0p}{HTML}{2A1F24} \definecolor{t0t}{HTML}{F7ECEE}
-\definecolor{t0d}{HTML}{B09AA0}
-\definecolor{t1a}{HTML}{3FC1A0} \definecolor{t1b}{HTML}{111A18}
-\definecolor{t1p}{HTML}{1C2A27} \definecolor{t1t}{HTML}{ECF7F3}
-\definecolor{t1d}{HTML}{93ABA4}
-\definecolor{t2a}{HTML}{F28C28} \definecolor{t2b}{HTML}{1C1610}
-\definecolor{t2p}{HTML}{2B2218} \definecolor{t2t}{HTML}{FAF1E6}
-\definecolor{t2d}{HTML}{B4A28C}
-\definecolor{t3a}{HTML}{D8D8D8} \definecolor{t3b}{HTML}{141414}
-\definecolor{t3p}{HTML}{242424} \definecolor{t3t}{HTML}{F0F0F0}
-\definecolor{t3d}{HTML}{9A9A9A}
-\definecolor{t4a}{HTML}{A8C6E8} \definecolor{t4b}{HTML}{1A1C22}
-\definecolor{t4p}{HTML}{282B33} \definecolor{t4t}{HTML}{EEF1F6}
-\definecolor{t4d}{HTML}{9DA4B2}
-
-\pagestyle{fancy}
-\fancyhf{}
-\lhead{\small Tomito-RS \textbar\ Architecture}
-\rhead{\small\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-\fancyfoot[C]{\footnotesize\color{softink}generated from the source tree -- diagrams, not screenshots}
-
-% ---------- headings ----------
-\usepackage{titlesec}
-\titleformat{\section}{\normalfont\Large\sffamily\bfseries\color{ink}}{\thesection}{0.7em}{}
-\titleformat{\subsection}{\normalfont\large\sffamily\bfseries\color{accent}}{\thesubsection}{0.6em}{}
-\titleformat{\subsubsection}{\normalfont\normalsize\sffamily\bfseries\color{softink}}{\thesubsubsection}{0.6em}{}
-\titlespacing*{\section}{0pt}{1.1ex plus .2ex minus .1ex}{0.6ex}
-\titlespacing*{\subsection}{0pt}{1.0ex plus .2ex minus .1ex}{0.4ex}
-
-% ---------- code ----------
-\definecolor{codecomment}{HTML}{7A8A80}
-\definecolor{codestring} {HTML}{3FC1A0}
-\definecolor{codekey}    {HTML}{F28C28}
-\definecolor{codebase}   {HTML}{2A1F24}
-\lstdefinestyle{tomito}{
-  backgroundcolor=\color{white},
-  frame=single,
-  rulecolor=\color{softink!35},
-  framesep=4pt,
-  frameround=tttt,
-  basicstyle=\ttfamily\small,
-  keywordstyle=\color{accent}\bfseries,
-  commentstyle=\color{codecomment}\itshape,
-  stringstyle=\color{codestring},
-  showstringspaces=false,
-  breaklines=true,
-  breakatwhitespace=true,
-  breakindent=0pt,
-  columns=fullflexible,
-  keepspaces=true,
-  tabsize=4,
-  numbers=none,
-  xleftmargin=2pt,
-}
-\lstset{style=tomito}
-
-% ---------- caption ----------
-\captionsetup{font=small,labelfont={sf,bf,color=ink},textfont={sf,color=softink}}
-
-% ---------- tikz shared styles ----------
-\colorlet{corefill}{pastel!28}
-\colorlet{shellfill}{mint!22}
-\colorlet{datafill}{mandarin!22}
-\colorlet{intentfill}{accent!16}
-\colorlet{soft}{softink!10}
-
-\tikzset{
-  >=stealth,
-  every node/.style={font=\small},
-  % --- nodes
-  mod/.style   = {rounded corners=2pt, draw=ink!55, fill=white, align=center,
-                  inner sep=5pt, line width=0.7pt, font=\small\sffamily},
-  core/.style  = {mod, draw=pastel!90!black, fill=corefill},
-  shell/.style = {mod, draw=mint!80!black, fill=shellfill},
-  data/.style  = {mod, draw=mandarin!80!black, fill=datafill},
-  intent/.style= {mod, draw=accent!70, fill=intentfill, text=accent!50!black},
-  osn/.style   = {mod, fill=soft, draw=softink!50, dashed},
-  lbl/.style   = {font=\scriptsize\sffamily\bfseries, text=softink},
-  tiny/.style  = {font=\scriptsize\sffamily, text=softink},
-  note/.style  = {font=\scriptsize\sffamily, align=center, text=softink},
-  % --- edges
-  e/.style     = {-stealth, thick, draw=ink!70},
-  ethin/.style = {-stealth, draw=ink!45},
-  er/.style    = {e, draw=accent!75},
-  ed/.style    = {e, draw=mandarin!85!black},
-  es/.style    = {e, draw=mint!75!black},
-  vlabel/.style= {font=\scriptsize\sffamily, fill=white, inner sep=1.5pt, text=softink,
-                  align=center},
-}
-
-\newcommand{\file}[1]{{\ttfamily\small #1}}
-\newcommand{\code}[1]{{\ttfamily #1}}
-\newcommand{\hd}[1]{{\scriptsize\sffamily\bfseries #1}}
-\newcommand{\field}[1]{{\ttfamily\small #1}}
-\newcommand{\good}{\textcolor{mint!70!black}{\textbf{yes}}}
-\newcommand{\bad}{\textcolor{accent!80!black}{\textbf{no}}}
-
-% ---------- boxed callout ----------
-\newcommand{\keybox}[2]{%
-  \begin{center}
-  \begin{tikzpicture}
-    \node[draw=#1, fill=#1!10, rounded corners=3pt, line width=0.8pt,
-          inner sep=7pt, text width=.92\linewidth, align=left] (b) {\small #2};
-  \end{tikzpicture}
-  \end{center}}
+\definecolor{core}{RGB}{40,44,52}
+\definecolor{shell}{RGB}{60,90,140}
+\definecolor{native}{RGB}{140,80,60}
+\definecolor{data}{RGB}{60,120,80}
+\definecolor{accent}{RGB}{232,74,95}
+\definecolor{light}{RGB}{200,200,200}
 
 \begin{document}
+\pagestyle{empty}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=4pt, minimum height=8mm},
+  corebox/.style={box, fill=core!15, draw=core},
+  shellbox/.style={box, fill=shell!15, draw=shell},
+  nativebox/.style={box, fill=native!15, draw=native},
+  databox/.style={box, fill=data!15, draw=data},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
 
-\input{parts/00-cover}
-\tableofcontents
-\clearpage
-\input{parts/01-overview}
-\input{parts/02-modules}
-\input{parts/03-cfg}
-\input{parts/04-timer}
-\input{parts/05-cycle}
-\input{parts/06-clock}
-\input{parts/07-effects}
-\input{parts/08-tick}
-\input{parts/09-persistence}
-\input{parts/10-stats}
-\input{parts/11-macshell}
-\input{parts/12-eguisheell}
-\input{parts/13-input}
-\input{parts/14-themes}
-\input{parts/15-build}
-\input{parts/16-tests}
+% ============================================================
+% CRATE STRUCTURE
+% ============================================================
+\node[corebox, minimum width=35mm] (lib) {\textbf{lib.rs}\\core modules};
+\node[corebox, below=3mm of lib, minimum width=35mm] (app) {\textbf{app.rs}\\App state};
+\node[corebox, below=3mm of app, minimum width=35mm] (timer) {\textbf{timer.rs}\\Timer FSM};
+\node[corebox, below=3mm of timer, minimum width=35mm] (config) {\textbf{config.rs}\\Settings};
+\node[corebox, below=3mm of config, minimum width=35mm] (stats) {\textbf{stats.rs}\\StatsStore};
+\node[corebox, below=3mm of stats, minimum width=35mm] (theme) {\textbf{theme.rs}\\Palette};
 
+\node[shellbox, right=12mm of lib, minimum width=30mm] (egui) {\textbf{egui-shell}\\eframe UI};
+\node[shellbox, below=3mm of egui, minimum width=30mm] (mac) {\textbf{mac-shell}\\AppKit UI};
+\node[shellbox, below=3mm of mac, minimum width=30mm] (slint) {\textbf{slint-shell}\\Slint UI};
+
+\node[nativebox, right=12mm of egui, minimum width=28mm] (native) {\textbf{native.rs}\\Status bar\\Sound};
+\node[nativebox, below=3mm of native, minimum width=28mm] (hotkeys) {\textbf{hotkeys.rs}\\Carbon\\Hotkeys};
+\node[nativebox, below=3mm of hotkeys, minimum width=28mm] (slintnat) {\textbf{slint-native}\\Dock\\Reopen};
+
+\node[databox, right=12mm of stats, minimum width=28mm] (csv) {\textbf{activities.csv}\\Append-only\\log};
+\node[databox, below=3mm of csv, minimum width=28mm] (conf) {\textbf{settings.conf}\\key=value\\text};
+
+\draw[arrow] (app) -- (timer);
+\draw[arrow] (app) -- (config);
+\draw[arrow] (app) -- (stats);
+\draw[arrow] (app) -- (theme);
+\draw[arrow] (egui) -- (lib);
+\draw[arrow] (mac) -- (lib);
+\draw[arrow] (slint) -- (lib);
+\draw[arrow] (egui) -- (native);
+\draw[arrow] (mac) -- (hotkeys);
+\draw[arrow] (slint) -- (slintnat);
+\draw[arrow] (stats) -- (csv);
+\draw[arrow] (config) -- (conf);
+
+\begin{scope}[on background layer]
+  \node[fit=(lib)(app)(timer)(config)(stats)(theme), draw=core, dashed, inner sep=4mm, label={[label]above left:Core Library}] {};
+  \node[fit=(egui)(mac)(slint), draw=shell, dashed, inner sep=4mm, label={[label]above left:Shells}] {};
+  \node[fit=(native)(hotkeys)(slintnat), draw=native, dashed, inner sep=4mm, label={[label]above left:Native Bridges}] {};
+  \node[fit=(csv)(conf), draw=data, dashed, inner sep=4mm, label={[label]above left:Storage}] {};
+\end{scope}
+
+% ============================================================
+% TIMER FSM
+% ============================================================
+\begin{scope}[xshift=160mm, yshift=0mm]
+\node[font=\sffamily\bfseries] at (0, 2) {Timer State Machine};
+
+\node[circle, draw=core, fill=core!10, minimum size=10mm] (idle) at (0,0) {Idle};
+\node[circle, draw=core, fill=core!10, minimum size=10mm] (running) at (4,0) {Running};
+\node[circle, draw=core, fill=core!10, minimum size=10mm] (paused) at (2,-3) {Paused};
+
+\draw[arrow] (idle) -- node[label, above]{start} (running);
+\draw[arrow] (running) -- node[label, right]{pause} (paused);
+\draw[arrow] (paused) -- node[label, left]{resume} (running);
+\draw[arrow] (running) to[out=150, in=210, looseness=5] node[label, left]{stop} (idle);
+\draw[arrow] (paused) to[out=30, in=330, looseness=5] node[label, right]{stop} (idle);
+\draw[arrow] (running) to[out=-90, in=-90, looseness=3] node[label, below]{restart} (running);
+
+\node[draw=accent, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (2, -5.5)
+  {\textbf{Activity} $\in$ \{Session, ShortBreak, LongBreak\}\\advance on finish/skip};
+\end{scope}
+
+% ============================================================
+% APP -> SHELL FLOW
+% ============================================================
+\begin{scope}[yshift=-55mm]
+\node[font=\sffamily\bfseries] at (0, 2) {App $\to$ Shell Flow};
+
+\node[corebox, minimum width=30mm] (appstate) {\textbf{App}\\state + flags};
+\node[shellbox, right=10mm of appstate, minimum width=25mm] (shell) {Shell\\logic};
+\node[nativebox, right=10mm of shell, minimum width=25mm] (effect) {Native\\effect};
+
+\draw[arrow] (appstate) -- node[label, above]{request} (shell);
+\draw[arrow] (shell) -- node[label, above]{consume} (effect);
+
+\node[databox, below=5mm of appstate, minimum width=25mm] (dirty) {settings\_dirty};
+\node[databox, below=5mm of shell, minimum width=25mm] (hide) {hide\_requested};
+\node[databox, below=5mm of effect, minimum width=25mm] (notify) {notify\_requested};
+
+\draw[arrow, dashed] (dirty) -- (appstate);
+\draw[arrow, dashed] (hide) -- (shell);
+\draw[arrow, dashed] (notify) -- (effect);
+
+\node[label, align=center] at (0, -4) {Flags consumed by shell each frame\\No direct shell $\to$ core calls};
+\end{scope}
+
+% ============================================================
+% STATS PIPELINE
+% ============================================================
+\begin{scope}[yshift=-100mm]
+\node[font=\sffamily\bfseries] at (0, 2) {Stats Pipeline};
+
+\node[corebox, minimum width=25mm] (record) {\textbf{record()}\\append line};
+\node[databox, right=8mm of record, minimum width=25mm] (file) {CSV\\file};
+\node[corebox, right=8mm of file, minimum width=25mm] (scan) {\textbf{scan()}\\streaming};
+\node[corebox, right=8mm of scan, minimum width=25mm] (cache) {\textbf{Cache}\\7-day fixed};
+
+\draw[arrow] (record) -- (file);
+\draw[arrow] (file) -- (scan);
+\draw[arrow] (scan) -- (cache);
+
+\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+  {\textbf{Entry} = (epoch, seconds, activity, completed)\\8KB chunk buffer, 256B line cap};
+\end{scope}
+
+% ============================================================
+% SETTINGS PARSE/SERIALIZE
+% ============================================================
+\begin{scope}[yshift=-140mm]
+\node[font=\sffamily\bfseries] at (0, 2) {Settings Pipeline};
+
+\node[databox, minimum width=25mm] (input) {settings.conf\\text};
+\node[corebox, right=8mm of input, minimum width=25mm] (parse) {\textbf{parse()}\\key=value};
+\node[corebox, right=8mm of parse, minimum width=25mm] (struct) {\textbf{Settings}\\struct};
+\node[corebox, right=8mm of struct, minimum width=25mm] (save) {\textbf{save()}\\serialize};
+\node[databox, right=8mm of save, minimum width=25mm] (output) {settings.conf\\text};
+
+\draw[arrow] (input) -- (parse);
+\draw[arrow] (parse) -- (struct);
+\draw[arrow] (struct) -- (save);
+\draw[arrow] (save) -- (output);
+
+\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+  {Atomic write: tmp $\to$ rename\\Clamp: session 1--180, break 1--60, cycle 2--10};
+\end{scope}
+
+% ============================================================
+% HOTKEY PATH
+% ============================================================
+\begin{scope}[yshift=-180mm]
+\node[font=\sffamily\bfseries] at (0, 2) {Hotkey Path (macOS)};
+
+\node[nativebox, minimum width=25mm] (carbon) {Carbon\\EventHotKey};
+\node[corebox, right=8mm of carbon, minimum width=25mm] (handler) {\textbf{hotkey()}\\callback};
+\node[corebox, right=8mm of handler, minimum width=25mm] (appmatch) {\textbf{App}\\toggle/skip/stop};
+\node[nativebox, right=8mm of appmatch, minimum width=25mm] (refresh) {UI\\refresh};
+
+\draw[arrow] (carbon) -- (handler);
+\draw[arrow] (handler) -- (appmatch);
+\draw[arrow] (appmatch) -- (refresh);
+
+\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+  {Ctrl+Option: Space, R, S, X, T\\No tap, no polling, no thread};
+\end{scope}
+
+% ============================================================
+% SHELL DISPATCH
+% ============================================================
+\begin{scope}[yshift=-220mm]
+\node[font=\sffamily\bfseries] at (0, 2) {Shell Dispatch (egui)};
+
+\node[shellbox, minimum width=20mm] (events) {Events\\input};
+\node[corebox, right=8mm of events, minimum width=20mm] (tick) {\textbf{tick()}\\check expiry};
+\node[corebox, right=8mm of tick, minimum width=20mm] (cmds) {\textbf{handle\_keys}\\Space R S X F};
+\node[shellbox, right=8mm of cmds, minimum width=20mm] (render) {UI\\render};
+
+\draw[arrow] (events) -- (tick);
+\draw[arrow] (tick) -- (cmds);
+\draw[arrow] (cmds) -- (render);
+
+\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+  {Native commands drained from queue\\Menu bar, hotkeys, sleep/wake};
+\end{scope}
+
+\end{tikzpicture}
 \end{document}

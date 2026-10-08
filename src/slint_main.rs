@@ -1,5 +1,5 @@
 //! Shared software-rendered desktop UI; native and egui variants remain available.
-use tomito_rs::{app, config, stats, timer};
+use rusty_pomodoro::{app, config, stats, timer};
 #[cfg(target_os = "macos")]
 mod hotkeys;
 mod slint_native;

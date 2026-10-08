@@ -254,7 +254,7 @@ impl Controller {
     item
   }
   fn build(&self) {
-    let window = self.window("Tomito RS", 380.0, 300.0);
+    let window = self.window("Rusty Pomodoro", 380.0, 300.0);
     let view = window.contentView().expect("content view");
     let activity = text(
       &view,
@@ -309,7 +309,7 @@ impl Controller {
     // App-local shortcuts; no global keyboard hook or permission requirement.
     let main_menu = NSMenu::new(self.mtm());
     let application = NSMenuItem::new(self.mtm());
-    application.setTitle(&NSString::from_str("Tomito RS"));
+    application.setTitle(&NSString::from_str("Rusty Pomodoro"));
     let commands = NSMenu::new(self.mtm());
     commands.setAutoenablesItems(false);
     for (title, tag, key) in [
@@ -370,7 +370,7 @@ impl Controller {
     if !self.ivars().state.borrow().app.settings.hide_on_launch {
       self.show();
     }
-    match std::env::var("TOMITO_BENCHMARK_SCENARIO").as_deref() {
+    match config::var("RUSTY_POMODORO_BENCHMARK_SCENARIO").as_deref() {
       Ok("running") => self.ivars().state.borrow_mut().app.toggle(),
       Ok("statistics") => self.open_statistics(),
       _ => {}
@@ -378,7 +378,7 @@ impl Controller {
     self.refresh();
   }
   fn present(&self, window: &NSWindow) {
-    if std::env::var_os("TOMITO_BENCHMARK").is_some() {
+    if config::var_os("RUSTY_POMODORO_BENCHMARK").is_some() {
       window.setIgnoresMouseEvents(crate::app::benchmark_locked());
       window.orderFront(None);
     } else {
@@ -805,7 +805,11 @@ impl Controller {
   fn export(&self) {
     {
       let mut state = self.ivars().state.borrow_mut();
-      let target = state.app.stats.path().with_file_name("tomito-stats.csv");
+      let target = state
+        .app
+        .stats
+        .path()
+        .with_file_name("rusty-pomodoro-stats.csv");
       state.app.status = match state.app.stats.export_csv(&target) {
         Ok(()) => format!("Exported to {}", target.display()),
         Err(e) => format!("Export failed: {e}"),
@@ -864,7 +868,7 @@ unsafe extern "C" fn hotkey(
 }
 pub fn run() {
   let mtm = MainThreadMarker::new().expect("main thread");
-  let dir = std::env::var_os("TOMITO_CONFIG_DIR")
+  let dir = config::var_os("RUSTY_POMODORO_CONFIG_DIR")
     .map(std::path::PathBuf::from)
     .unwrap_or_else(|| config::config_dir("tomito-rs"));
   let settings = Settings::load(&dir.join("settings.conf"));

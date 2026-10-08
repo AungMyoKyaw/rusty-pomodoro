@@ -58,7 +58,7 @@ pub fn draw(app: &mut App, ctx: &egui::Context) {
       ui.separator();
       ui.horizontal(|ui| {
         if ui.button("Export CSV").clicked() {
-          let target = app.stats.path().with_file_name("tomito-stats.csv");
+          let target = app.stats.path().with_file_name("rusty-pomodoro-stats.csv");
           match app.stats.export_csv(&target) {
             Ok(()) => app.status = format!("Exported to {}", target.display()),
             Err(error) => app.status = format!("Export failed: {error}"),

@@ -1,4 +1,4 @@
-# Tomito RS
+# Rusty Pomodoro
 
 A small Rust Pomodoro app independently rebuilt from the behavior of the installed Tomito app.
 
@@ -11,22 +11,22 @@ Optional egui and shared software-rendered Slint interfaces remain available. Ap
 make dev       # Run the portable Slint app for local development
 make build     # Build macOS, Windows, and Linux release binaries
 make package-macos
-open "dist/Tomito RS.app"
+open "dist/Rusty Pomodoro.app"
 ```
 
 `make build` builds Slint binaries for macOS arm64/x86_64, Windows x86_64, and Linux x86_64. It needs Rust target support plus MinGW (`x86_64-w64-mingw32-gcc`) and a Linux cross-linker (`x86_64-unknown-linux-gnu-gcc`) for cross-builds. Override linker paths with `WINDOWS_LINKER` or `LINUX_LINKER`. Build one platform with `make build-macos`, `make build-windows`, or `make build-linux`. Outputs land under `target/<triple>/release/`.
 
-`make dev` runs the shared Slint UI. The default `tomito` binary uses native AppKit and is macOS-only. `make package-macos` creates its local/ad-hoc signed app bundle; it is not notarized and does not replace `/Applications/Tomito.app`. Windows/Linux runtime behavior is not tested.
+`make dev` runs the shared Slint UI. The default `rusty-pomodoro` binary uses native AppKit and is macOS-only. `make package-macos` creates its local/ad-hoc signed app bundle; it is not notarized and does not replace `/Applications/Tomito.app`. Windows/Linux runtime behavior is not tested.
 
 `.editorconfig` sets two-space, space-only indentation for editors. Makefile recipes use tabs because Make requires them. `rustfmt.toml` configures Rust formatting to use two spaces; run `make fmt` to format or `make fmt-check` to verify.
 
 ## Shared UI: Slint software renderer
 
 ```sh
-cargo run --locked --release --features slint-ui --bin tomito-slint
+cargo run --locked --release --features slint-ui --bin rusty-pomodoro-slint
 # Separate locally signed macOS bundle, leaving native bundle unchanged:
 ./scripts/package-slint-macos.sh
-open "dist/Tomito Portable.app"
+open "dist/Rusty Pomodoro Slint.app"
 ```
 
 Timer/settings/statistics use the same custom layout, colors and bundled Hack font on
@@ -47,7 +47,7 @@ support is not enabled in the current minimal feature configuration.
 
 Local keys: Space/R/S/X/F, Escape (return to timer). Numeric settings are drafts until
 **Apply and save**. Preview sound uses the selected draft. Configuration/history location
-is shared with other variants by default; use `TOMITO_CONFIG_DIR` when comparing.
+is shared with other variants by default; use `RUSTY_POMODORO_CONFIG_DIR` when comparing.
 
 ## Features
 
@@ -57,9 +57,9 @@ keep-in-front, sleep/wake behavior, real macOS sounds, theme accents,
 day/week statistics, seven-day chart, CSV export, confirmed reset.
 
 Native settings apply with **Apply and save**, or when the Settings window closes.
-CSV exports to `tomito-stats.csv` beside the activity log.
-Settings and history live in `~/Library/Application Support/tomito-rs/` on macOS.
-Set `TOMITO_CONFIG_DIR` to isolate development/testing data.
+CSV exports to `rusty-pomodoro-stats.csv` beside the activity log.
+Settings and history remain in `~/Library/Application Support/tomito-rs/` on macOS to preserve existing user data.
+Set `RUSTY_POMODORO_CONFIG_DIR` to isolate development/testing data. Legacy `TOMITO_*` environment variables remain accepted as aliases.
 
 ## Native shortcuts
 
@@ -80,12 +80,12 @@ cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo test --features egui-ui --all-targets
 cargo clippy --features egui-ui --all-targets -- -D warnings
-cargo test --features slint-ui --lib --bin tomito-slint
-cargo clippy --features slint-ui --bin tomito-slint -- -D warnings
+cargo test --features slint-ui --lib --bin rusty-pomodoro-slint
+cargo clippy --features slint-ui --bin rusty-pomodoro-slint -- -D warnings
 # Real Slint window: synthetic key/pointer events and persisted-state assertions
-TOMITO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin tomito-slint -- --smoke
+RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin rusty-pomodoro-slint -- --smoke
 # Actual 60-second expiry while hidden, restore and recorded activity:
-TOMITO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin tomito-slint -- --smoke-expiry
+RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin rusty-pomodoro-slint -- --smoke-expiry
 # Dock icon and actual Dock-click restoration (macOS Accessibility required):
 ./scripts/smoke-dock-macos.sh
 # All builds finish before measurements begin:

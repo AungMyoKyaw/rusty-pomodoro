@@ -8,15 +8,15 @@ use std::time::{Duration, Instant};
 const APP_NAME: &str = "tomito-rs";
 
 pub fn run() -> eframe::Result {
-  let dir = std::env::var_os("TOMITO_CONFIG_DIR")
+  let dir = config::var_os("RUSTY_POMODORO_CONFIG_DIR")
     .map(std::path::PathBuf::from)
     .unwrap_or_else(|| config::config_dir(APP_NAME));
   let settings = Settings::load(&dir.join("settings.conf"));
   let store = StatsStore::new(dir.join("activities.csv"));
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
-      .with_title("Tomito RS")
-      .with_active(std::env::var_os("TOMITO_BENCHMARK").is_none())
+      .with_title("Rusty Pomodoro")
+      .with_active(config::var_os("RUSTY_POMODORO_BENCHMARK").is_none())
       .with_inner_size([400.0, 460.0])
       .with_min_inner_size([360.0, 440.0]),
     multisampling: 0,
@@ -54,12 +54,12 @@ pub fn run() -> eframe::Result {
       ctx.set_fonts(fonts);
       theme::apply(&ctx, theme::palette(settings.theme));
       let mut app = App::new(settings, dir.join("settings.conf"), store);
-      match std::env::var("TOMITO_BENCHMARK_SCENARIO").as_deref() {
+      match config::var("RUSTY_POMODORO_BENCHMARK_SCENARIO").as_deref() {
         Ok("running") => app.toggle(),
         Ok("statistics") => app.panel = Panel::Statistics,
         _ => {}
       }
-      Ok(Box::new(TomitoApp {
+      Ok(Box::new(RustyPomodoroApp {
         app,
         native: Native::new(ctx),
         last_save: Instant::now(),
@@ -69,14 +69,14 @@ pub fn run() -> eframe::Result {
     }),
   )
 }
-struct TomitoApp {
+struct RustyPomodoroApp {
   app: App,
   native: Native,
   last_save: Instant,
   applied_theme: config::Theme,
   applied_front: Option<bool>,
 }
-impl TomitoApp {
+impl RustyPomodoroApp {
   fn effects(&mut self, ctx: &egui::Context) {
     if self.applied_theme != self.app.settings.theme {
       theme::apply(ctx, self.app.palette);
@@ -126,7 +126,7 @@ impl TomitoApp {
     }
   }
 }
-impl eframe::App for TomitoApp {
+impl eframe::App for RustyPomodoroApp {
   fn logic(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
     for command in self.native.drain() {
       if crate::app::benchmark_locked() && !matches!(command, Command::Sleep | Command::Wake) {

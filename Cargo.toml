@@ -1,16 +1,16 @@
 [package]
-name = "tomito-rs"
-default-run = "tomito"
+name = "rusty-pomodoro"
+default-run = "rusty-pomodoro"
 version = "0.1.0"
 edition = "2021"
 description = "Low-memory Rust Pomodoro timer with native macOS UI and optional egui"
 
 [[bin]]
-name = "tomito"
+name = "rusty-pomodoro"
 path = "src/main.rs"
 
 [[bin]]
-name = "tomito-slint"
+name = "rusty-pomodoro-slint"
 path = "src/slint_main.rs"
 required-features = ["slint-ui"]
 

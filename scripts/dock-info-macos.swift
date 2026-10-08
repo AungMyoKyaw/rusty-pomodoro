@@ -5,7 +5,7 @@ import Foundation
 let pid = pid_t(CommandLine.arguments[1])!
 guard let app = NSRunningApplication(processIdentifier: pid) else { fatalError("process not running") }
 let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as! [[String: Any]]
-let mine = windows.filter { ($0[kCGWindowOwnerPID as String] as? Int) == Int(pid) && ($0[kCGWindowName as String] as? String) == "Tomito Portable" }
+let mine = windows.filter { ($0[kCGWindowOwnerPID as String] as? Int) == Int(pid) && ($0[kCGWindowName as String] as? String) == "Rusty Pomodoro" }
 // Verify the running app's icon is the red/cream stopwatch, not merely a generic non-nil icon.
 var customIcon = false
 if let image = app.icon, let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {

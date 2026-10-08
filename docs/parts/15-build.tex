@@ -20,7 +20,7 @@
   \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e); \draw[e] (e)--(f);
 \end{tikzpicture}
 \caption{Six settings, all aimed at the same goal. The README is explicit that these
-should be measured, not trusted: \texttt{ls -lh target/release/tomito} and an idle
+should be measured, not trusted: \texttt{ls -lh target/release/rusty-pomodoro} and an idle
 memory reading are the real evidence.}
 \label{fig:profile}
 \end{figure}
@@ -35,10 +35,10 @@ memory reading are the real evidence.}
   g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
 ]
   \node[b] (a) {\texttt{cargo build --locked --release}};
-  \node[b] (b) {\texttt{cp target/release/tomito}\\\texttt{dist/Tomito RS.app/Contents/MacOS/}};
+  \node[b] (b) {\texttt{cp target/release/rusty-pomodoro}\\\texttt{dist/Rusty Pomodoro.app/Contents/MacOS/}};
   \node[b] (c) {\texttt{cp packaging/Info.plist}\\\texttt{Contents/Info.plist}};
   \node[g] (d) {\texttt{codesign --force --sign -}\\\scriptsize ad-hoc signature};
-  \node[b] (e) {\texttt{du -sh "dist/Tomito RS.app"}};
+  \node[b] (e) {\texttt{du -sh "dist/Rusty Pomodoro.app"}};
   \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e);
 \end{tikzpicture}
 \caption{\file{scripts/package-macos.sh} is five commands. There is no DMG, no notarisation,

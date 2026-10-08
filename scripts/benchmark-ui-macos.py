@@ -52,7 +52,7 @@ def main():
     variants = {
         "native": ROOT / "dist/bench-native",
         "egui": ROOT / "dist/bench-egui",
-        "slint": ROOT / "target/release/tomito-slint",
+        "slint": ROOT / "target/release/rusty-pomodoro-slint",
     }
     report = {
         "date": datetime.datetime.now().astimezone().isoformat(),
@@ -78,11 +78,11 @@ def main():
         names = names[iteration:] + names[:iteration]
         for name in names:
             for scenario in ("idle", "running", "statistics"):
-                with tempfile.TemporaryDirectory(prefix=f"tomito-{name}-") as directory:
+                with tempfile.TemporaryDirectory(prefix=f"rusty-pomodoro-{name}-") as directory:
                     env = os.environ | {
-                        "TOMITO_CONFIG_DIR": directory,
-                        "TOMITO_BENCHMARK": "1",
-                        "TOMITO_BENCHMARK_SCENARIO": scenario,
+                        "RUSTY_POMODORO_CONFIG_DIR": directory,
+                        "RUSTY_POMODORO_BENCHMARK": "1",
+                        "RUSTY_POMODORO_BENCHMARK_SCENARIO": scenario,
                     }
                     log_path = args.out / f"{name}-{scenario}-{iteration}.log"
                     with log_path.open("w") as log:

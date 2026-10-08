@@ -303,7 +303,7 @@ mod tests {
   static NEXT: AtomicUsize = AtomicUsize::new(0);
   fn store(text: &str) -> StatsStore {
     let path = std::env::temp_dir().join(format!(
-      "tomito-stats-{}-{}.csv",
+      "rusty-pomodoro-stats-{}-{}.csv",
       std::process::id(),
       NEXT.fetch_add(1, Ordering::Relaxed)
     ));

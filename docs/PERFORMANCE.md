@@ -67,11 +67,11 @@ that is not a steady-state CPU benchmark. No universal RAM or CPU ceiling is pro
 
 ```sh
 ./scripts/package-macos.sh
-open "dist/Tomito RS.app"
+open "dist/Rusty Pomodoro.app"
 # Wait for startup activity to settle, then use the actual PID:
 ./scripts/measure-macos.sh <pid>
 ```
 
-Use `TOMITO_CONFIG_DIR=/tmp/your-isolated-test-directory` for development benchmarks.
+Use `RUSTY_POMODORO_CONFIG_DIR=/tmp/your-isolated-test-directory` for development benchmarks.
 Keep window/panel state, audio, architecture, OS, power mode and competing workloads consistent.
 Measure the shipped release binary, not a debug build.

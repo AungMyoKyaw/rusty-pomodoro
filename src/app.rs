@@ -7,9 +7,9 @@ use crate::timer::{Durations, RunState, Timer};
 use std::path::PathBuf;
 
 pub fn benchmark_locked() -> bool {
-  std::env::var_os("TOMITO_BENCHMARK").is_some()
+  crate::config::var_os("RUSTY_POMODORO_BENCHMARK").is_some()
     && matches!(
-      std::env::var("TOMITO_BENCHMARK_SCENARIO").as_deref(),
+      crate::config::var("RUSTY_POMODORO_BENCHMARK_SCENARIO").as_deref(),
       Ok("idle" | "running" | "statistics")
     )
 }
@@ -69,10 +69,10 @@ impl App {
   }
   /// Abort an isolated measurement rather than silently benchmarking a state changed by input.
   pub fn verify_benchmark_scenario(&self) {
-    if std::env::var_os("TOMITO_BENCHMARK").is_none() {
+    if crate::config::var_os("RUSTY_POMODORO_BENCHMARK").is_none() {
       return;
     }
-    let Ok(scenario) = std::env::var("TOMITO_BENCHMARK_SCENARIO") else {
+    let Ok(scenario) = crate::config::var("RUSTY_POMODORO_BENCHMARK_SCENARIO") else {
       return;
     };
     let (expected, panel) = match scenario.as_str() {
@@ -268,7 +268,7 @@ mod tests {
   static NEXT: AtomicUsize = AtomicUsize::new(0);
   fn app() -> App {
     let dir = std::env::temp_dir().join(format!(
-      "tomito-app-{}-{}",
+      "rusty-pomodoro-app-{}-{}",
       std::process::id(),
       NEXT.fetch_add(1, Ordering::Relaxed)
     ));

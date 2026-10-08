@@ -151,7 +151,7 @@ mod mac {
       );
       let image = NSImage::initWithData(
         NSImage::alloc(),
-        &NSData::with_bytes(include_bytes!("../assets/tomito-icon-256.png")),
+        &NSData::with_bytes(include_bytes!("../assets/rusty-pomodoro-icon-256.png")),
       )
       .expect("valid bundled app icon");
       // SAFETY: provide a valid retained image, never nil; NSApplication retains it.
