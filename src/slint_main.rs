@@ -6,5 +6,5 @@ mod slint_native;
 mod slint_shell;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    slint_shell::run()
+  slint_shell::run()
 }

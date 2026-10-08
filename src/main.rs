@@ -14,11 +14,11 @@ mod ui;
 
 #[cfg(feature = "egui-ui")]
 fn main() -> eframe::Result {
-    egui_shell::run()
+  egui_shell::run()
 }
 #[cfg(all(target_os = "macos", not(feature = "egui-ui")))]
 fn main() {
-    mac_shell::run();
+  mac_shell::run();
 }
 #[cfg(all(not(target_os = "macos"), not(feature = "egui-ui")))]
 compile_error!("Windows/Linux: use --features egui-ui or --features slint-ui --bin tomito-slint.");

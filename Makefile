@@ -6,11 +6,13 @@ WINDOWS_LINKER ?= x86_64-w64-mingw32-gcc
 LINUX_LINKER ?= x86_64-unknown-linux-gnu-gcc
 SLINT_ARGS := --locked --release --features slint-ui --bin tomito-slint
 
-.PHONY: help dev build build-macos build-windows build-linux package-macos
+.PHONY: help dev fmt fmt-check build build-macos build-windows build-linux package-macos
 
 help:
 	@printf '%s\n' \
 		'make dev          Run Slint app for local development' \
+		'make fmt          Format Rust source with rustfmt' \
+		'make fmt-check    Check Rust formatting' \
 		'make build        Build release binaries for macOS, Windows, and Linux' \
 		'make build-macos  Build macOS arm64 and x86_64 binaries' \
 		'make build-windows Build Windows x86_64 binary (MinGW cross-linker required)' \
@@ -19,6 +21,12 @@ help:
 
 dev:
 	$(CARGO) run --locked --features slint-ui --bin tomito-slint
+
+fmt:
+	$(CARGO) fmt --all
+
+fmt-check:
+	$(CARGO) fmt --all -- --check
 
 build: build-macos build-windows build-linux
 

@@ -18,6 +18,8 @@ open "dist/Tomito RS.app"
 
 `make dev` runs the shared Slint UI. The default `tomito` binary uses native AppKit and is macOS-only. `make package-macos` creates its local/ad-hoc signed app bundle; it is not notarized and does not replace `/Applications/Tomito.app`. Windows/Linux runtime behavior is not tested.
 
+`.editorconfig` sets two-space, space-only indentation for editors. Makefile recipes use tabs because Make requires them. `rustfmt.toml` configures Rust formatting to use two spaces; run `make fmt` to format or `make fmt-check` to verify.
+
 ## Shared UI: Slint software renderer
 
 ```sh
@@ -73,7 +75,7 @@ Its macOS menu bar and system sounds work, but the fixed global shortcuts belong
 ## Validation
 
 ```sh
-cargo fmt --check
+make fmt-check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo test --features egui-ui --all-targets
