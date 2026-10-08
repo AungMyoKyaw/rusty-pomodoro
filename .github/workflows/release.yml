@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux
+            artifact: linux-x86_64
+          - runner: windows-2022
+            platform: windows
+            artifact: windows-x86_64
+          - runner: macos-15
+            platform: macos
+            artifact: macos-arm64
+          - runner: macos-15-intel
+            platform: macos
+            artifact: macos-x86_64
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libfontconfig1-dev libwayland-dev wayland-protocols libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libx11-dev libx11-xcb-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Linux release binary
+        if: matrix.platform == 'linux'
+        run: |
+          cargo build --locked --release --features slint-ui --bin rusty-pomodoro-slint
+          mkdir -p dist
+          cp target/release/rusty-pomodoro-slint dist/rusty-pomodoro-slint
+          tar -C dist -czf "dist/rusty-pomodoro-${GITHUB_REF_NAME}-${{ matrix.artifact }}.tar.gz" rusty-pomodoro-slint
+
+      - name: Build Windows release binary
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          cargo build --locked --release --features slint-ui --bin rusty-pomodoro-slint
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path target/release/rusty-pomodoro-slint.exe -DestinationPath "dist/rusty-pomodoro-${{ github.ref_name }}-${{ matrix.artifact }}.zip"
+
+      - name: Build and ad-hoc sign macOS app
+        if: matrix.platform == 'macos'
+        run: |
+          ./scripts/package-slint-macos.sh
+          codesign --verify --deep --strict "dist/Rusty Pomodoro Slint.app"
+          ditto -c -k --sequesterRsrc --keepParent "dist/Rusty Pomodoro Slint.app" "dist/rusty-pomodoro-${GITHUB_REF_NAME}-${{ matrix.artifact }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/rusty-pomodoro-${{ github.ref_name }}-*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: dist/*

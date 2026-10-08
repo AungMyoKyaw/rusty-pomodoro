@@ -18,6 +18,10 @@ open "dist/Rusty Pomodoro.app"
 
 `make dev` runs the shared Slint UI. The default `rusty-pomodoro` binary uses native AppKit and is macOS-only. `make package-macos` creates its local/ad-hoc signed app bundle; it is not notarized and does not replace `/Applications/Tomito.app`. Windows/Linux runtime behavior is not tested.
 
+## Releases
+
+Push a version tag such as `v1.0.0` to build and publish release assets for Linux x86_64, Windows x86_64, macOS arm64, and macOS x86_64. The macOS `.app` bundles use ad-hoc code signing (`codesign --sign -`) and are not Developer ID-signed or notarized. They may require a local Gatekeeper override before launch. Linux and Windows builds package the shared Slint application.
+
 `.editorconfig` sets two-space, space-only indentation for editors. Makefile recipes use tabs because Make requires them. `rustfmt.toml` configures Rust formatting to use two spaces; run `make fmt` to format or `make fmt-check` to verify.
 
 ## Shared UI: Slint software renderer
