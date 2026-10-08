@@ -18,6 +18,20 @@ open "dist/Rusty Pomodoro.app"
 
 `make dev` runs the shared Slint UI. The default `rusty-pomodoro` binary uses native AppKit and is macOS-only. `make package-macos` creates its local/ad-hoc signed app bundle; it is not notarized and does not replace `/Applications/Tomito.app`. Windows/Linux runtime behavior is not tested.
 
+## Demo session
+
+Run the shared desktop UI from the repository root:
+
+```sh
+make dev
+```
+
+The app opens on the Timer screen with a 25-minute session ready to start. Use the
+Timer, Settings, and Statistics tabs to walk through the demo. The screenshot below
+shows the initial timer screen.
+
+![Rusty Pomodoro demo session](assets/demo-session.png)
+
 ## Releases
 
 Push a version tag such as `v1.0.0` to build and publish release assets for Linux x86_64, Windows x86_64, macOS arm64, and macOS x86_64. The macOS `.app` bundles use ad-hoc code signing (`codesign --sign -`) and are not Developer ID-signed or notarized. They may require a local Gatekeeper override before launch. Linux and Windows builds package the shared Slint application.
