@@ -5,22 +5,18 @@ A small Rust Pomodoro app independently rebuilt from the behavior of the install
 **Default on macOS: native AppKit, controlled entirely by Rust.**
 Optional egui and shared software-rendered Slint interfaces remain available. AppKit avoids the GPU context and font atlas that made the measured egui build use substantially more memory.
 
-## Run
+## Run and build
 
 ```sh
-cargo run --release
-# Package a locally signed app:
-./scripts/package-macos.sh
+make dev       # Run the portable Slint app for local development
+make build     # Build macOS, Windows, and Linux release binaries
+make package-macos
 open "dist/Tomito RS.app"
 ```
 
-The bundle is local/ad-hoc signed, not notarized. It does not replace `/Applications/Tomito.app`.
+`make build` builds Slint binaries for macOS arm64/x86_64, Windows x86_64, and Linux x86_64. It needs Rust target support plus MinGW (`x86_64-w64-mingw32-gcc`) and a Linux cross-linker (`x86_64-unknown-linux-gnu-gcc`) for cross-builds. Override linker paths with `WINDOWS_LINKER` or `LINUX_LINKER`. Build one platform with `make build-macos`, `make build-windows`, or `make build-linux`. Outputs land under `target/<triple>/release/`.
 
-Optional egui (Windows/Linux-capable source; runtime untested):
-```sh
-cargo run --release --features egui-ui
-```
-The egui Linux variant uses X11, not Wayland. Windows/Linux runtime behavior is not tested.
+`make dev` runs the shared Slint UI. The default `tomito` binary uses native AppKit and is macOS-only. `make package-macos` creates its local/ad-hoc signed app bundle; it is not notarized and does not replace `/Applications/Tomito.app`. Windows/Linux runtime behavior is not tested.
 
 ## Shared UI: Slint software renderer
 
