@@ -22,6 +22,7 @@ mv -f "$bundle/Contents/MacOS/rusty-pomodoro-slint.new" "$bundle/Contents/MacOS/
 cp packaging/Portable-Info.plist "$bundle/Contents/Info.plist"
 cp "$work/RustyPomodoro.icns" "$bundle/Contents/Resources/RustyPomodoro.icns"
 cp assets/Hack-Regular.txt "$bundle/Contents/Resources/Hack-License.txt"
+cp assets/NotoSans-OFL.txt "$bundle/Contents/Resources/NotoSans-License.txt"
 codesign --force --sign - "$bundle"
 echo "$bundle"
 du -sh "$bundle"

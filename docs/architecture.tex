@@ -1,191 +1,284 @@
 \documentclass[10pt]{article}
-\usepackage[margin=1cm]{geometry}
+\usepackage[margin=1.5cm]{geometry}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta, positioning, shapes.geometric, shapes.multipart, fit, backgrounds, calc, decorations.pathreplacing, patterns}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, backgrounds, calc}
 
 \definecolor{core}{RGB}{40,44,52}
 \definecolor{shell}{RGB}{60,90,140}
 \definecolor{native}{RGB}{140,80,60}
 \definecolor{data}{RGB}{60,120,80}
 \definecolor{accent}{RGB}{232,74,95}
-\definecolor{light}{RGB}{200,200,200}
+
+\newcommand{\diagramtitle}[1]{\begin{center}\Large\sffamily\bfseries #1\end{center}\vspace{0.3cm}}
 
 \begin{document}
 \pagestyle{empty}
+
+% ============================================================
+% PAGE 1: CRATE STRUCTURE
+% ============================================================
+\clearpage
+\begin{minipage}{\textwidth}
+\diagramtitle{Crate Structure}
+
+\begin{center}
 \begin{tikzpicture}[
   font=\sffamily\small,
-  box/.style={rounded corners=3pt, draw, align=center, inner sep=4pt, minimum height=8mm},
-  corebox/.style={box, fill=core!15, draw=core},
-  shellbox/.style={box, fill=shell!15, draw=shell},
-  nativebox/.style={box, fill=native!15, draw=native},
-  databox/.style={box, fill=data!15, draw=data},
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=6pt, minimum height=9mm, minimum width=42mm},
+  corebox/.style={box, fill=core!12, draw=core},
+  shellbox/.style={box, fill=shell!12, draw=shell},
+  nativebox/.style={box, fill=native!12, draw=native},
+  databox/.style={box, fill=data!12, draw=data},
   arrow/.style={-{Stealth[length=2mm]}, thick},
   label/.style={font=\sffamily\scriptsize\itshape, text=gray},
 ]
 
-% ============================================================
-% CRATE STRUCTURE
-% ============================================================
-\node[corebox, minimum width=35mm] (lib) {\textbf{lib.rs}\\core modules};
-\node[corebox, below=3mm of lib, minimum width=35mm] (app) {\textbf{app.rs}\\App state};
-\node[corebox, below=3mm of app, minimum width=35mm] (timer) {\textbf{timer.rs}\\Timer FSM};
-\node[corebox, below=3mm of timer, minimum width=35mm] (config) {\textbf{config.rs}\\Settings};
-\node[corebox, below=3mm of config, minimum width=35mm] (stats) {\textbf{stats.rs}\\StatsStore};
-\node[corebox, below=3mm of stats, minimum width=35mm] (theme) {\textbf{theme.rs}\\Palette};
+% Core library column
+\node[corebox] (lib) {\textbf{lib.rs}\\core modules};
+\node[corebox, below=4mm of lib] (app) {\textbf{app.rs}\\App state};
+\node[corebox, below=4mm of app] (timer) {\textbf{timer.rs}};
+\node[corebox, below=4mm of timer] (config) {\textbf{config.rs}\\Settings};
+\node[corebox, below=4mm of config] (stats) {\textbf{stats.rs}};
+\node[corebox, below=4mm of stats] (theme) {\textbf{theme.rs}\\Palette};
 
-\node[shellbox, right=12mm of lib, minimum width=30mm] (egui) {\textbf{egui-shell}\\eframe UI};
-\node[shellbox, below=3mm of egui, minimum width=30mm] (mac) {\textbf{mac-shell}\\AppKit UI};
-\node[shellbox, below=3mm of mac, minimum width=30mm] (slint) {\textbf{slint-shell}\\Slint UI};
+% Shells column
+\node[shellbox, right=15mm of lib] (egui) {\textbf{egui-shell}\\eframe UI};
+\node[shellbox, below=4mm of egui] (mac) {\textbf{mac-shell}\\AppKit UI};
+\node[shellbox, below=4mm of mac] (slint) {\textbf{slint-shell}\\Slint UI};
 
-\node[nativebox, right=12mm of egui, minimum width=28mm] (native) {\textbf{native.rs}\\Status bar\\Sound};
-\node[nativebox, below=3mm of native, minimum width=28mm] (hotkeys) {\textbf{hotkeys.rs}\\Carbon\\Hotkeys};
-\node[nativebox, below=3mm of hotkeys, minimum width=28mm] (slintnat) {\textbf{slint-native}\\Dock\\Reopen};
+% Native column
+\node[nativebox, right=15mm of egui] (native) {\textbf{native.rs}\\Status bar\\Sound};
+\node[nativebox, below=4mm of native] (hotkeys) {\textbf{hotkeys.rs}\\Carbon Hotkeys};
+\node[nativebox, below=4mm of hotkeys] (slintnat) {\textbf{slint-native}\\Dock Reopen};
 
-\node[databox, right=12mm of stats, minimum width=28mm] (csv) {\textbf{activities.csv}\\Append-only\\log};
-\node[databox, below=3mm of csv, minimum width=28mm] (conf) {\textbf{settings.conf}\\key=value\\text};
+% Storage column
+\node[databox, right=15mm of config] (conf) {\textbf{settings.conf}\\key=value text};
+\node[databox, right=15mm of stats] (csv) {\textbf{activities.csv}\\Append-only log};
 
+% Arrows: core internal
 \draw[arrow] (app) -- (timer);
 \draw[arrow] (app) -- (config);
 \draw[arrow] (app) -- (stats);
 \draw[arrow] (app) -- (theme);
-\draw[arrow] (egui) -- (lib);
-\draw[arrow] (mac) -- (lib);
-\draw[arrow] (slint) -- (lib);
+
+% Arrows: lib provides to shells
+\draw[arrow] (lib) -- (egui);
+\draw[arrow] ([xshift=5mm]lib.east) |- (mac.west);
+\draw[arrow] ([xshift=5mm]lib.east) |- (slint.west);
+
+% Arrows: shells use native
 \draw[arrow] (egui) -- (native);
 \draw[arrow] (mac) -- (hotkeys);
 \draw[arrow] (slint) -- (slintnat);
-\draw[arrow] (stats) -- (csv);
-\draw[arrow] (config) -- (conf);
 
+% Arrows: storage
+\draw[arrow] (config) -- (conf);
+\draw[arrow] (stats) -- (csv);
+
+% Group labels
 \begin{scope}[on background layer]
-  \node[fit=(lib)(app)(timer)(config)(stats)(theme), draw=core, dashed, inner sep=4mm, label={[label]above left:Core Library}] {};
-  \node[fit=(egui)(mac)(slint), draw=shell, dashed, inner sep=4mm, label={[label]above left:Shells}] {};
-  \node[fit=(native)(hotkeys)(slintnat), draw=native, dashed, inner sep=4mm, label={[label]above left:Native Bridges}] {};
-  \node[fit=(csv)(conf), draw=data, dashed, inner sep=4mm, label={[label]above left:Storage}] {};
+  \node[fit=(lib)(app)(timer)(config)(stats)(theme), draw=core, dashed, inner sep=5mm, label={[label]above:Core Library}] {};
+  \node[fit=(egui)(mac)(slint), draw=shell, dashed, inner sep=5mm, label={[label]above:Shells}] {};
+  \node[fit=(native)(hotkeys)(slintnat), draw=native, dashed, inner sep=5mm, label={[label]above:Native Bridges}] {};
+  \node[fit=(csv)(conf), draw=data, dashed, inner sep=5mm, label={[label]above:Storage}] {};
 \end{scope}
 
-% ============================================================
-% TIMER FSM
-% ============================================================
-\begin{scope}[xshift=160mm, yshift=0mm]
-\node[font=\sffamily\bfseries] at (0, 2) {Timer State Machine};
+\end{tikzpicture}
+\end{center}
+\end{minipage}
 
-\node[circle, draw=core, fill=core!10, minimum size=10mm] (idle) at (0,0) {Idle};
-\node[circle, draw=core, fill=core!10, minimum size=10mm] (running) at (4,0) {Running};
-\node[circle, draw=core, fill=core!10, minimum size=10mm] (paused) at (2,-3) {Paused};
+\clearpage
+
+% ============================================================
+% PAGE 2: TIMER FSM + APP->SHELL FLOW
+% ============================================================
+\begin{minipage}{\textwidth}
+\diagramtitle{Timer State Machine}
+
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  arrow/.style={-{Stealth[length=2.5mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
+
+\node[circle, draw=core, fill=core!12, minimum size=14mm] (idle) {Idle};
+\node[circle, draw=core, fill=core!12, minimum size=14mm, right=28mm of idle] (running) {Running};
+\node[circle, draw=core, fill=core!12, minimum size=14mm, below=14mm of running] (paused) {Paused};
 
 \draw[arrow] (idle) -- node[label, above]{start} (running);
 \draw[arrow] (running) -- node[label, right]{pause} (paused);
-\draw[arrow] (paused) -- node[label, left]{resume} (running);
-\draw[arrow] (running) to[out=150, in=210, looseness=5] node[label, left]{stop} (idle);
-\draw[arrow] (paused) to[out=30, in=330, looseness=5] node[label, right]{stop} (idle);
-\draw[arrow] (running) to[out=-90, in=-90, looseness=3] node[label, below]{restart} (running);
+\draw[arrow] (paused) -- node[label, below]{resume} (running);
+\draw[arrow] (running.north) to[out=120, in=60, looseness=4] node[label, above]{stop} (idle.north);
+\draw[arrow] (paused.west) to[out=160, in=200, looseness=4] node[label, left]{stop} (idle.south);
+\draw[arrow] (running.south) to[out=-45, in=-135, looseness=5] node[label, below]{restart} (running.south);
 
-\node[draw=accent, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (2, -5.5)
+\node[draw=accent, rounded corners, align=center, inner sep=4pt, font=\sffamily\scriptsize, text width=55mm] at ($(idle)!0.5!(paused) + (0,-28mm)$)
   {\textbf{Activity} $\in$ \{Session, ShortBreak, LongBreak\}\\advance on finish/skip};
-\end{scope}
 
-% ============================================================
-% APP -> SHELL FLOW
-% ============================================================
-\begin{scope}[yshift=-55mm]
-\node[font=\sffamily\bfseries] at (0, 2) {App $\to$ Shell Flow};
+\end{tikzpicture}
+\end{center}
 
-\node[corebox, minimum width=30mm] (appstate) {\textbf{App}\\state + flags};
-\node[shellbox, right=10mm of appstate, minimum width=25mm] (shell) {Shell\\logic};
-\node[nativebox, right=10mm of shell, minimum width=25mm] (effect) {Native\\effect};
+\vspace{0.5cm}
+\diagramtitle{App $\to$ Shell Flow}
+
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=5pt, minimum height=9mm, minimum width=30mm},
+  corebox/.style={box, fill=core!12, draw=core},
+  shellbox/.style={box, fill=shell!12, draw=shell},
+  nativebox/.style={box, fill=native!12, draw=native},
+  databox/.style={box, fill=data!12, draw=data},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
+
+\node[corebox] (appstate) {\textbf{App}\\state + flags};
+\node[shellbox, right=12mm of appstate] (shell) {Shell logic};
+\node[nativebox, right=12mm of shell] (effect) {Native effect};
 
 \draw[arrow] (appstate) -- node[label, above]{request} (shell);
 \draw[arrow] (shell) -- node[label, above]{consume} (effect);
 
-\node[databox, below=5mm of appstate, minimum width=25mm] (dirty) {settings\_dirty};
-\node[databox, below=5mm of shell, minimum width=25mm] (hide) {hide\_requested};
-\node[databox, below=5mm of effect, minimum width=25mm] (notify) {notify\_requested};
+\node[databox, below=6mm of appstate] (dirty) {settings\_dirty};
+\node[databox, below=6mm of shell] (hide) {hide\_requested};
+\node[databox, below=6mm of effect] (notify) {notify\_requested};
 
 \draw[arrow, dashed] (dirty) -- (appstate);
 \draw[arrow, dashed] (hide) -- (shell);
 \draw[arrow, dashed] (notify) -- (effect);
 
-\node[label, align=center] at (0, -4) {Flags consumed by shell each frame\\No direct shell $\to$ core calls};
-\end{scope}
+\node[label, align=center] at ($(0,-28mm)$) {Flags consumed by shell each frame --- no direct shell $\to$ core calls};
+
+\end{tikzpicture}
+\end{center}
+\end{minipage}
+
+\clearpage
 
 % ============================================================
-% STATS PIPELINE
+% PAGE 3: STATS + SETTINGS
 % ============================================================
-\begin{scope}[yshift=-100mm]
-\node[font=\sffamily\bfseries] at (0, 2) {Stats Pipeline};
+\begin{minipage}{\textwidth}
+\diagramtitle{Stats Pipeline}
 
-\node[corebox, minimum width=25mm] (record) {\textbf{record()}\\append line};
-\node[databox, right=8mm of record, minimum width=25mm] (file) {CSV\\file};
-\node[corebox, right=8mm of file, minimum width=25mm] (scan) {\textbf{scan()}\\streaming};
-\node[corebox, right=8mm of scan, minimum width=25mm] (cache) {\textbf{Cache}\\7-day fixed};
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=5pt, minimum height=9mm, minimum width=28mm},
+  corebox/.style={box, fill=core!12, draw=core},
+  databox/.style={box, fill=data!12, draw=data},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
+
+\node[corebox] (record) {\textbf{record()}\\append line};
+\node[databox, right=10mm of record] (file) {CSV file};
+\node[corebox, right=10mm of file] (scan) {\textbf{scan()}\\streaming};
+\node[corebox, right=10mm of scan] (cache) {\textbf{Cache}\\7-day fixed};
 
 \draw[arrow] (record) -- (file);
 \draw[arrow] (file) -- (scan);
 \draw[arrow] (scan) -- (cache);
 
-\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+\node[draw, rounded corners, align=center, inner sep=4pt, font=\sffamily\scriptsize, text width=60mm] at ($(0,-18mm)$)
   {\textbf{Entry} = (epoch, seconds, activity, completed)\\8KB chunk buffer, 256B line cap};
-\end{scope}
 
-% ============================================================
-% SETTINGS PARSE/SERIALIZE
-% ============================================================
-\begin{scope}[yshift=-140mm]
-\node[font=\sffamily\bfseries] at (0, 2) {Settings Pipeline};
+\end{tikzpicture}
+\end{center}
 
-\node[databox, minimum width=25mm] (input) {settings.conf\\text};
-\node[corebox, right=8mm of input, minimum width=25mm] (parse) {\textbf{parse()}\\key=value};
-\node[corebox, right=8mm of parse, minimum width=25mm] (struct) {\textbf{Settings}\\struct};
-\node[corebox, right=8mm of struct, minimum width=25mm] (save) {\textbf{save()}\\serialize};
-\node[databox, right=8mm of save, minimum width=25mm] (output) {settings.conf\\text};
+\vspace{0.8cm}
+\diagramtitle{Settings Pipeline}
+
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=5pt, minimum height=9mm, minimum width=28mm},
+  corebox/.style={box, fill=core!12, draw=core},
+  databox/.style={box, fill=data!12, draw=data},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
+
+\node[databox] (input) {settings.conf\\text};
+\node[corebox, right=10mm of input] (parse) {\textbf{parse()}\\key=value};
+\node[corebox, right=10mm of parse] (struct) {\textbf{Settings}\\struct};
+\node[corebox, right=10mm of struct] (save) {\textbf{save()}\\serialize};
+\node[databox, right=10mm of save] (output) {settings.conf\\text};
 
 \draw[arrow] (input) -- (parse);
 \draw[arrow] (parse) -- (struct);
 \draw[arrow] (struct) -- (save);
 \draw[arrow] (save) -- (output);
 
-\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+\node[draw, rounded corners, align=center, inner sep=4pt, font=\sffamily\scriptsize, text width=60mm] at ($(0,-18mm)$)
   {Atomic write: tmp $\to$ rename\\Clamp: session 1--180, break 1--60, cycle 2--10};
-\end{scope}
+
+\end{tikzpicture}
+\end{center}
+\end{minipage}
+
+\clearpage
 
 % ============================================================
-% HOTKEY PATH
+% PAGE 4: HOTKEYS + SHELL DISPATCH
 % ============================================================
-\begin{scope}[yshift=-180mm]
-\node[font=\sffamily\bfseries] at (0, 2) {Hotkey Path (macOS)};
+\begin{minipage}{\textwidth}
+\diagramtitle{Hotkey Path (macOS)}
 
-\node[nativebox, minimum width=25mm] (carbon) {Carbon\\EventHotKey};
-\node[corebox, right=8mm of carbon, minimum width=25mm] (handler) {\textbf{hotkey()}\\callback};
-\node[corebox, right=8mm of handler, minimum width=25mm] (appmatch) {\textbf{App}\\toggle/skip/stop};
-\node[nativebox, right=8mm of appmatch, minimum width=25mm] (refresh) {UI\\refresh};
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=5pt, minimum height=9mm, minimum width=28mm},
+  corebox/.style={box, fill=core!12, draw=core},
+  nativebox/.style={box, fill=native!12, draw=native},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
+
+\node[nativebox] (carbon) {Carbon\\EventHotKey};
+\node[corebox, right=10mm of carbon] (handler) {\textbf{hotkey()}\\callback};
+\node[corebox, right=10mm of handler] (appmatch) {\textbf{App}\\toggle/skip/stop};
+\node[nativebox, right=10mm of appmatch] (refresh) {UI refresh};
 
 \draw[arrow] (carbon) -- (handler);
 \draw[arrow] (handler) -- (appmatch);
 \draw[arrow] (appmatch) -- (refresh);
 
-\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+\node[draw, rounded corners, align=center, inner sep=4pt, font=\sffamily\scriptsize, text width=60mm] at ($(0,-18mm)$)
   {Ctrl+Option: Space, R, S, X, T\\No tap, no polling, no thread};
-\end{scope}
 
-% ============================================================
-% SHELL DISPATCH
-% ============================================================
-\begin{scope}[yshift=-220mm]
-\node[font=\sffamily\bfseries] at (0, 2) {Shell Dispatch (egui)};
+\end{tikzpicture}
+\end{center}
 
-\node[shellbox, minimum width=20mm] (events) {Events\\input};
-\node[corebox, right=8mm of events, minimum width=20mm] (tick) {\textbf{tick()}\\check expiry};
-\node[corebox, right=8mm of tick, minimum width=20mm] (cmds) {\textbf{handle\_keys}\\Space R S X F};
-\node[shellbox, right=8mm of cmds, minimum width=20mm] (render) {UI\\render};
+\vspace{0.8cm}
+\diagramtitle{Shell Dispatch (egui)}
+
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={rounded corners=3pt, draw, align=center, inner sep=5pt, minimum height=9mm, minimum width=28mm},
+  corebox/.style={box, fill=core!12, draw=core},
+  shellbox/.style={box, fill=shell!12, draw=shell},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  label/.style={font=\sffamily\scriptsize\itshape, text=gray},
+]
+
+\node[shellbox] (events) {Events\\input};
+\node[corebox, right=10mm of events] (tick) {\textbf{tick()}\\check expiry};
+\node[corebox, right=10mm of tick] (cmds) {\textbf{handle\_keys}\\Space R S X F};
+\node[shellbox, right=10mm of cmds] (render) {UI render};
 
 \draw[arrow] (events) -- (tick);
 \draw[arrow] (tick) -- (cmds);
 \draw[arrow] (cmds) -- (render);
 
-\node[draw, rounded corners, align=center, inner sep=3pt, font=\sffamily\scriptsize] at (0, -2.5)
+\node[draw, rounded corners, align=center, inner sep=4pt, font=\sffamily\scriptsize, text width=60mm] at ($(0,-18mm)$)
   {Native commands drained from queue\\Menu bar, hotkeys, sleep/wake};
-\end{scope}
 
 \end{tikzpicture}
+\end{center}
+\end{minipage}
+
 \end{document}

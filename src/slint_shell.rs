@@ -111,9 +111,36 @@ fn fill_settings(shell: &Shell, ui: &PortableWindow) {
       .unwrap() as i32,
   );
   ui.set_sound_label(s.notification_sound.label().into());
+  ui.set_saved_session(ui.get_session_input());
+  ui.set_saved_short(ui.get_short_input());
+  ui.set_saved_long(ui.get_long_input());
+  ui.set_saved_cycle(ui.get_cycle_input());
+  ui.set_saved_theme(ui.get_theme_index());
+  ui.set_saved_sound(ui.get_sound_index());
+  ui.set_options_dirty(false);
+  ui.set_draft_accent(accent(s.theme));
+  ui.set_session_error("".into());
+  ui.set_short_error("".into());
+  ui.set_long_error("".into());
+  ui.set_cycle_error("".into());
+}
+
+fn choose_theme(ui: &PortableWindow, index: i32) {
+  if let Some(theme) = Theme::ALL.get(index as usize) {
+    ui.set_theme_index(index);
+    ui.set_theme_label(theme.label().into());
+    ui.set_draft_accent(accent(*theme));
+  }
+}
+fn choose_sound(ui: &PortableWindow, index: i32) {
+  if let Some(sound) = Sound::ALL.get(index as usize) {
+    ui.set_sound_index(index);
+    ui.set_sound_label(sound.label().into());
+  }
 }
 fn statistics(shell: &Shell, ui: &PortableWindow) {
   let day = stats::today_index();
+  ui.set_scope_day(shell.app.stats_scope_day);
   let only = shell.app.settings.show_completed_only;
   let total = if shell.app.stats_scope_day {
     shell.app.stats.totals_for_day(day, only)
@@ -121,27 +148,28 @@ fn statistics(shell: &Shell, ui: &PortableWindow) {
     shell.app.stats.totals_for_week(day, only)
   };
   match total {
-    Ok(t) => ui.set_summary_text(
-      format!(
-        "{}: {} sessions / {} breaks\nFocus {} / Breaks {}\nLong breaks {} / Skipped {}",
-        if shell.app.stats_scope_day {
-          "Today"
-        } else {
-          "Last 7 days"
-        },
-        t.sessions,
-        t.breaks,
-        stats::format_duration(t.session_seconds),
-        stats::format_duration(t.break_seconds),
-        t.long_breaks,
-        t.skipped
-      )
-      .into(),
-    ),
-    Err(e) => ui.set_summary_text(format!("Statistics read failed: {e}").into()),
+    Ok(t) => {
+      ui.set_focus_total(stats::format_duration(t.session_seconds).into());
+      ui.set_break_total(stats::format_duration(t.break_seconds).into());
+      ui.set_sessions_total(t.sessions.to_string().into());
+      ui.set_stats_detail(
+        format!(
+          "{} breaks · {} long breaks · Skipped {}",
+          t.breaks, t.long_breaks, t.skipped
+        )
+        .into(),
+      );
+    }
+    Err(e) => {
+      ui.set_focus_total("—".into());
+      ui.set_break_total("—".into());
+      ui.set_sessions_total("—".into());
+      ui.set_stats_detail(format!("Statistics read failed: {e}").into());
+    }
   }
   match shell.app.stats.daily_totals(day, only) {
     Ok(series) => {
+      ui.set_empty_week(series.iter().all(|(_, t)| t.session_seconds == 0));
       let max = series
         .iter()
         .map(|(_, t)| t.session_seconds)
@@ -151,18 +179,23 @@ fn statistics(shell: &Shell, ui: &PortableWindow) {
       let data = series
         .into_iter()
         .map(|(date, t)| DayRow {
-          label: format!(
-            "{} / {}",
-            stats::format_date(date),
-            stats::format_duration(t.session_seconds)
-          )
-          .into(),
+          label: if date == day {
+            "Today".into()
+          } else {
+            stats::format_date(date).into()
+          },
+          duration: stats::format_duration(t.session_seconds).into(),
+          today: date == day,
           fraction: t.session_seconds as f32 / max as f32,
         })
         .collect::<Vec<_>>();
       ui.set_days(ModelRc::new(VecModel::from(data)));
     }
-    Err(e) => ui.set_status_text(format!("Statistics read failed: {e}").into()),
+    Err(e) => {
+      ui.set_days(ModelRc::new(VecModel::from(Vec::<DayRow>::new())));
+      ui.set_empty_week(false);
+      ui.set_status_text(format!("Statistics read failed: {e}").into());
+    }
   }
 }
 pub fn refresh(state: &State) {
@@ -210,8 +243,11 @@ pub fn refresh(state: &State) {
   ui.set_running(app.timer.state() == RunState::Running);
   ui.set_overtime(app.is_overtime());
   ui.set_progress(app.timer.progress());
+  ui.set_cycle_size(app.settings.long_break_cycle as i32);
+  ui.set_cycle_completed((app.timer.completed_sessions() % app.settings.long_break_cycle) as i32);
   ui.set_accent(accent(app.settings.theme));
   ui.set_status_text(app.status.clone().into());
+  ui.set_status_error(app.status.contains("failed") || app.status.starts_with("Fix "));
   let hide = std::mem::take(&mut app.hide_requested);
   let show = std::mem::take(&mut app.show_requested);
   let notify = std::mem::take(&mut app.notify_requested);
@@ -278,6 +314,18 @@ pub fn dispatch(state: &State, action: i32) {
   {
     let mut shell = state.borrow_mut();
     let Some(ui) = shell.ui.upgrade() else { return };
+    if let Some(page) = match action {
+      5 => Some(0),
+      6 => Some(1),
+      7 => Some(2),
+      _ => None,
+    } {
+      if ui.get_page() != page {
+        shell.app.status.clear();
+        ui.set_export_path("".into());
+        ui.set_confirm_reset(false);
+      }
+    }
     match action {
       0 => shell.app.toggle(),
       1 => shell.app.restart(),
@@ -292,10 +340,10 @@ pub fn dispatch(state: &State, action: i32) {
         shell.app.panel = Panel::None;
         ui.set_page(0);
         ui.set_confirm_reset(false);
+        ui.invoke_focus_timer();
       }
       6 => {
         shell.app.panel = Panel::Settings;
-        fill_settings(&shell, &ui);
         ui.set_page(1);
       }
       7 => {
@@ -308,7 +356,24 @@ pub fn dispatch(state: &State, action: i32) {
         shell.app.save_settings();
         let _ = slint::quit_event_loop();
       }
-      15 => crate::slint_native::play(Sound::ALL[ui.get_sound_index() as usize]),
+      15 => {
+        if let Some(sound) = Sound::ALL.get(ui.get_sound_index() as usize) {
+          crate::slint_native::play(*sound);
+        }
+      }
+      16 =>
+      {
+        #[cfg(target_os = "macos")]
+        if !ui.get_export_path().is_empty() {
+          if let Err(e) = std::process::Command::new("open")
+            .arg("-R")
+            .arg(ui.get_export_path().as_str())
+            .spawn()
+          {
+            shell.app.status = format!("Show file failed: {e}");
+          }
+        }
+      }
       20 => {
         shell.app.show_requested = true;
       }
@@ -325,10 +390,44 @@ fn save(state: &State) {
     let Some(ui) = shell.ui.upgrade() else { return };
     let result = (|| {
       let mut s = shell.app.settings;
-      s.session_minutes = number(&ui.get_session_input(), 1, 180)?;
-      s.short_break_minutes = number(&ui.get_short_input(), 1, 60)?;
-      s.long_break_minutes = number(&ui.get_long_input(), 1, 120)?;
-      s.long_break_cycle = number(&ui.get_cycle_input(), 2, 10)?;
+      let inputs = [
+        ui.get_session_input(),
+        ui.get_short_input(),
+        ui.get_long_input(),
+        ui.get_cycle_input(),
+      ];
+      let ranges = [(1, 180), (1, 60), (1, 120), (2, 10)];
+      let mut values = [0; 4];
+      let mut invalid = false;
+      for (index, (input, (min, max))) in inputs.iter().zip(ranges).enumerate() {
+        let error = match number(input, min, max) {
+          Ok(value) => {
+            values[index] = value;
+            "".into()
+          }
+          Err(_) => {
+            invalid = true;
+            "Enter a whole number".into()
+          }
+        };
+        match index {
+          0 => ui.set_session_error(error),
+          1 => ui.set_short_error(error),
+          2 => ui.set_long_error(error),
+          3 => ui.set_cycle_error(error),
+          _ => unreachable!(),
+        }
+      }
+      if invalid {
+        ui.set_settings_section(0);
+        return Err("Fix the highlighted duration fields");
+      }
+      [
+        s.session_minutes,
+        s.short_break_minutes,
+        s.long_break_minutes,
+        s.long_break_cycle,
+      ] = values;
       apply_flags(
         &mut s,
         std::array::from_fn(|i| shell.switches.row_data(i).unwrap().checked),
@@ -342,7 +441,20 @@ fn save(state: &State) {
         shell.app.settings = s;
         shell.app.set_theme(s.theme);
         shell.app.set_sound(s.notification_sound);
-        shell.app.status = "Settings saved".into();
+        let adjusted = [
+          (ui.get_session_input(), s.session_minutes),
+          (ui.get_short_input(), s.short_break_minutes),
+          (ui.get_long_input(), s.long_break_minutes),
+          (ui.get_cycle_input(), s.long_break_cycle),
+        ]
+        .iter()
+        .any(|(input, value)| input.trim().parse::<u32>().ok() != Some(*value));
+        shell.app.status = if adjusted {
+          "Settings saved · values adjusted to allowed ranges"
+        } else {
+          "Settings saved"
+        }
+        .into();
         shell.app.save_settings();
         fill_settings(&shell, &ui);
       }
@@ -354,7 +466,8 @@ fn save(state: &State) {
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
   // Both values specified: SLINT_BACKEND cannot silently substitute a GPU renderer.
   let benchmark = config::var_os("RUSTY_POMODORO_BENCHMARK").is_some();
-  let smoke = std::env::args().any(|a| a == "--smoke" || a == "--smoke-expiry");
+  let smoke =
+    std::env::args().any(|a| matches!(a.as_str(), "--smoke" | "--smoke-expiry" | "--smoke-visual"));
   slint::BackendSelector::new()
     .backend_name("winit".into())
     .renderer_name("software".into())
@@ -418,6 +531,15 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
       if let Some(mut row) = shell.switches.row_data(index as usize) {
         row.checked = !row.checked;
         shell.switches.set_row_data(index as usize, row);
+        let original = flags(shell.app.settings);
+        if let Some(ui) = shell.ui.upgrade() {
+          ui.set_options_dirty(
+            original
+              .iter()
+              .enumerate()
+              .any(|(i, checked)| shell.switches.row_data(i).unwrap().checked != *checked),
+          );
+        }
       }
     }
   });
@@ -425,16 +547,38 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
   ui.on_next_theme(move || {
     if let Some(u) = weak.upgrade() {
       let i = (u.get_theme_index() as usize + 1) % Theme::ALL.len();
-      u.set_theme_index(i as i32);
-      u.set_theme_label(Theme::ALL[i].label().into());
+      choose_theme(&u, i as i32);
     }
   });
   let weak = ui.as_weak();
   ui.on_next_sound(move || {
     if let Some(u) = weak.upgrade() {
       let i = (u.get_sound_index() as usize + 1) % Sound::ALL.len();
-      u.set_sound_index(i as i32);
-      u.set_sound_label(Sound::ALL[i].label().into());
+      choose_sound(&u, i as i32);
+    }
+  });
+  let weak = ui.as_weak();
+  ui.on_select_theme(move |index| {
+    if let Some(ui) = weak.upgrade() {
+      choose_theme(&ui, index);
+    }
+  });
+  let weak = ui.as_weak();
+  ui.on_select_sound(move |index| {
+    if let Some(ui) = weak.upgrade() {
+      choose_sound(&ui, index);
+    }
+  });
+  let weak = Rc::downgrade(&state);
+  ui.on_discard_settings(move || {
+    if let Some(state) = weak.upgrade() {
+      let mut shell = state.borrow_mut();
+      if let Some(ui) = shell.ui.upgrade() {
+        fill_settings(&shell, &ui);
+      }
+      shell.app.status = "Changes discarded".into();
+      drop(shell);
+      refresh(&state);
     }
   });
   let weak = Rc::downgrade(&state);
@@ -455,8 +599,18 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
           .path()
           .with_file_name("rusty-pomodoro-stats.csv");
         shell.app.status = match shell.app.stats.export_csv(&target) {
-          Ok(()) => format!("Exported to {}", target.display()),
-          Err(e) => format!("Export failed: {e}"),
+          Ok(()) => {
+            if let Some(ui) = shell.ui.upgrade() {
+              ui.set_export_path(target.to_string_lossy().into_owned().into());
+            }
+            "CSV exported".into()
+          }
+          Err(e) => {
+            if let Some(ui) = shell.ui.upgrade() {
+              ui.set_export_path("".into());
+            }
+            format!("Export failed: {e}")
+          }
         };
       }
       refresh(&s);
@@ -538,6 +692,14 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
   if std::env::args().any(|a| a == "--smoke-expiry") {
     start_expiry_smoke(state.clone());
   }
+  if std::env::args().any(|a| a == "--smoke-visual") {
+    let capture = std::path::PathBuf::from(
+      config::var("RUSTY_POMODORO_CAPTURE_DIR")
+        .map_err(|_| "Visual smoke requires RUSTY_POMODORO_CAPTURE_DIR")?,
+    );
+    std::fs::create_dir_all(&capture)?;
+    start_visual_smoke(state.clone(), capture, 0);
+  }
   #[cfg(target_os = "macos")]
   slint::run_event_loop_until_quit()?;
   #[cfg(not(target_os = "macos"))]
@@ -576,11 +738,77 @@ fn start_smoke(state: State) {
         button: slint::platform::PointerEventButton::Left,
       });
     assert_eq!(ui.get_page(), 1, "pointer opens Settings");
+    ui.set_session_input("47".into());
+    assert!(ui.get_settings_dirty());
+    dispatch(&state, 6);
+    assert_eq!(
+      ui.get_session_input(),
+      "47",
+      "active Settings tab preserves draft"
+    );
+    dispatch(&state, 7);
+    dispatch(&state, 6);
+    assert_eq!(ui.get_session_input(), "47", "draft survives other pages");
+    ui.invoke_discard_settings();
+    assert_eq!(ui.get_session_input(), "25");
+    assert!(!ui.get_settings_dirty(), "discard returns to saved values");
+    ui.set_settings_section(1);
+    // Clicking a checkbox gives it focus; Space toggles that checkbox, not the timer.
+    let original = state.borrow().switches.row_data(0).unwrap().checked;
+    for event in [
+      slint::platform::WindowEvent::PointerPressed {
+        position: slint::LogicalPosition::new(32.0, 195.0),
+        button: slint::platform::PointerEventButton::Left,
+      },
+      slint::platform::WindowEvent::PointerReleased {
+        position: slint::LogicalPosition::new(32.0, 195.0),
+        button: slint::platform::PointerEventButton::Left,
+      },
+    ] {
+      ui.window().dispatch_event(event);
+    }
+    assert_ne!(
+      state.borrow().switches.row_data(0).unwrap().checked,
+      original,
+      "checkbox click"
+    );
+    ui.window()
+      .dispatch_event(slint::platform::WindowEvent::KeyPressed { text: " ".into() });
+    ui.window()
+      .dispatch_event(slint::platform::WindowEvent::KeyReleased { text: " ".into() });
+    assert_eq!(
+      state.borrow().switches.row_data(0).unwrap().checked,
+      original,
+      "checkbox keyboard"
+    );
+    ui.set_settings_section(0);
+    ui.set_session_input("invalid".into());
+    ui.invoke_save_settings();
+    assert_eq!(
+      state.borrow().app.settings.session_minutes,
+      25,
+      "invalid draft does not persist"
+    );
+    assert!(ui.get_status_text().contains("Fix the highlighted"));
+    assert!(ui.get_session_error().contains("Enter a whole"));
+    assert!(ui.get_status_error());
     ui.set_session_input("9999".into());
     ui.invoke_save_settings();
     assert_eq!(state.borrow().app.settings.session_minutes, 180);
     assert_eq!(ui.get_session_input(), "180");
+    assert!(ui.get_status_text().contains("values adjusted"));
+    assert!(!ui.get_settings_dirty());
     ui.invoke_next_theme();
+    assert_eq!(ui.get_draft_accent(), accent(Theme::Mint));
+    assert_eq!(
+      state.borrow().app.settings.theme,
+      Theme::Flamingo,
+      "preview does not save"
+    );
+    dispatch(&state, 5);
+    assert_eq!(ui.get_accent(), accent(Theme::Flamingo));
+    dispatch(&state, 6);
+    assert_eq!(ui.get_theme_index(), 1, "theme draft preserved");
     ui.invoke_next_sound();
     ui.invoke_option_toggled(6);
     ui.invoke_option_toggled(4); // Include the incomplete activity recorded by Skip.
@@ -590,8 +818,23 @@ fn start_smoke(state: State) {
     let persisted = Settings::load(&state.borrow().app.settings_path);
     assert_eq!(persisted, state.borrow().app.settings);
     dispatch(&state, 7);
-    assert!(ui.get_summary_text().contains("Skipped 1"));
+    assert!(ui.get_stats_detail().contains("Skipped 1"));
+    assert_eq!(ui.get_days().row_count(), 7, "all seven chart days");
+    assert!(ui.get_scope_day());
+    ui.invoke_select_scope(false);
+    assert!(!ui.get_scope_day(), "selected week state");
+    assert_eq!(ui.get_days().row_count(), 7);
+    ui.invoke_select_scope(true);
+    assert!(ui.get_scope_day());
     ui.invoke_export_history();
+    assert_eq!(ui.get_status_text(), "CSV exported");
+    assert!(!ui.get_export_path().is_empty());
+    dispatch(&state, 6);
+    assert!(
+      ui.get_status_text().is_empty(),
+      "feedback belongs to its page"
+    );
+    dispatch(&state, 7);
     assert!(state
       .borrow()
       .app
@@ -602,8 +845,31 @@ fn start_smoke(state: State) {
     ui.set_confirm_reset(true);
     ui.invoke_reset_history();
     assert!(!ui.get_confirm_reset());
-    assert!(ui.get_summary_text().contains("Skipped 0"));
+    assert!(ui.get_stats_detail().contains("Skipped 0"));
+    assert!(ui.get_empty_week());
+    assert_eq!(ui.get_focus_total(), "0m");
+    assert_eq!(ui.get_sessions_total(), "0");
     dispatch(&state, 5);
+    for event in [
+      slint::platform::WindowEvent::PointerPressed {
+        position: slint::LogicalPosition::new(80.0, 38.0),
+        button: slint::platform::PointerEventButton::Left,
+      },
+      slint::platform::WindowEvent::PointerReleased {
+        position: slint::LogicalPosition::new(80.0, 38.0),
+        button: slint::platform::PointerEventButton::Left,
+      },
+      slint::platform::WindowEvent::KeyPressed { text: " ".into() },
+      slint::platform::WindowEvent::KeyReleased { text: " ".into() },
+    ] {
+      ui.window().dispatch_event(event);
+    }
+    assert_eq!(
+      state.borrow().app.timer.state(),
+      RunState::Running,
+      "Space after Timer navigation"
+    );
+    dispatch(&state, 3);
     #[cfg(target_os = "macos")]
     {
       ui.window()
@@ -616,6 +882,92 @@ fn start_smoke(state: State) {
     dispatch(&state, 9);
   });
 }
+// Captures the real software-rendered window, not a parallel HTML mock.
+// PPM keeps capture support dependency-free; fixtures never touch user history.
+fn start_visual_smoke(state: State, capture: std::path::PathBuf, step: usize) {
+  slint::Timer::single_shot(Duration::from_millis(200), move || {
+    let sizes = [(420.0, 560.0), (380.0, 560.0), (640.0, 720.0)];
+    if step == sizes.len() * 7 {
+      println!("PASS visual smoke: timer idle/running, settings durations/appearance, empty/populated statistics, reset confirmation at default/minimum/expanded sizes");
+      dispatch(&state, 9);
+      return;
+    }
+    let ui = state.borrow().ui.upgrade().unwrap();
+    let (width, height) = sizes[step / 7];
+    ui.window().set_size(slint::LogicalSize::new(width, height));
+    state.borrow_mut().app.status.clear();
+    match step % 7 {
+      0 => {
+        dispatch(&state, 3);
+        dispatch(&state, 5);
+      }
+      1 => {
+        dispatch(&state, 0);
+      }
+      2 | 3 => {
+        dispatch(&state, 6);
+        ui.set_settings_section(if step % 7 == 2 { 0 } else { 2 });
+      }
+      4 => {
+        state.borrow().app.stats.reset().unwrap();
+        dispatch(&state, 7);
+      }
+      5 => {
+        // Synthetic completed activities across seven days, isolated smoke config.
+        let now = std::time::SystemTime::now()
+          .duration_since(std::time::UNIX_EPOCH)
+          .unwrap()
+          .as_secs();
+        let fixture = (0..7)
+          .map(|day| format!("{},{},0,1\n", now - day * 86_400, (day + 1) * 1500))
+          .collect::<String>();
+        let path = state.borrow().app.stats.path().to_owned();
+        std::fs::write(&path, fixture).unwrap();
+        state.borrow_mut().app.stats = StatsStore::new(path);
+        dispatch(&state, 7);
+        ui.invoke_select_scope(false);
+      }
+      6 => {
+        ui.set_confirm_reset(true);
+        state.borrow_mut().app.status =
+          "Exported to /temporary/isolated/visual-smoke/rusty-pomodoro-stats.csv".into();
+        refresh(&state);
+      }
+      _ => unreachable!(),
+    }
+    slint::Timer::single_shot(Duration::from_millis(150), move || {
+      let snapshot = ui
+        .window()
+        .take_snapshot()
+        .expect("software window snapshot");
+      use std::io::Write;
+      let path = capture.join(format!("{}-{}.ppm", step / 7, step % 7));
+      let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .unwrap();
+      write!(
+        file,
+        "P6\n{} {}\n255\n",
+        snapshot.width(),
+        snapshot.height()
+      )
+      .unwrap();
+      let rgb: Vec<u8> = snapshot
+        .as_bytes()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|p| p[..3].iter().copied())
+        .collect();
+      file.write_all(&rgb).unwrap();
+      println!("CAPTURE {}", path.display());
+      start_visual_smoke(state, capture, step + 1);
+    });
+  });
+}
+
 fn start_expiry_smoke(state: State) {
   slint::Timer::single_shot(Duration::from_millis(400), move || {
     {
