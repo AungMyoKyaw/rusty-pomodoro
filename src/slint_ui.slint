@@ -16,6 +16,10 @@ global Ink {
     out property <color> error: #ff9da9;
 }
 
+global InteractionMode {
+    in-out property <bool> keyboard: false;
+}
+
 export struct SwitchRow { label: string, checked: bool }
 export struct DayRow { label: string, duration: string, fraction: float, today: bool }
 
@@ -34,7 +38,7 @@ component ActionButton inherits Rectangle {
     accessible-label: root.label;
     accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.clicked(); } }
-    border-width: keyboard.has-focus ? 2px : 0px;
+    border-width: keyboard.has-focus && InteractionMode.keyboard ? 2px : 0px;
     border-color: root.accent;
     height: 36px;
     min-width: 58px;
@@ -55,12 +59,13 @@ component ActionButton inherits Rectangle {
     keyboard := FocusScope {
         enabled: root.enabled;
         key-pressed(event) => {
+            InteractionMode.keyboard = true;
             if event.text == " " && root.timer-shortcuts { return reject; }
             if (event.text == Key.Return || event.text == " ") { root.clicked(); return accept; }
             return reject;
         }
     }
-    mouse := TouchArea { enabled: root.enabled; clicked => { keyboard.focus(); root.clicked(); } }
+    mouse := TouchArea { enabled: root.enabled; clicked => { InteractionMode.keyboard = false; keyboard.focus(); root.clicked(); } }
 }
 
 component CheckRow inherits Rectangle {
@@ -94,11 +99,12 @@ component CheckRow inherits Rectangle {
     Text { x: 32px; width: parent.width - 36px; height: parent.height; text: root.label; accessible-role: none; color: Ink.text; font-size: 12px; vertical-alignment: center; }
     keyboard := FocusScope {
         key-pressed(event) => {
+            InteractionMode.keyboard = true;
             if event.text == " " || event.text == Key.Return { root.toggled(); return accept; }
             return reject;
         }
     }
-    mouse := TouchArea { clicked => { keyboard.focus(); root.toggled(); } }
+    mouse := TouchArea { clicked => { InteractionMode.keyboard = false; keyboard.focus(); root.toggled(); } }
 }
 
 component NumberField inherits Rectangle {
@@ -214,6 +220,7 @@ export component PortableWindow inherits Window {
     page-keyboard := FocusScope {
         init => { Palette.color-scheme = ColorScheme.dark; self.focus(); }
         key-pressed(event) => {
+            InteractionMode.keyboard = true;
             if (event.text == Key.Escape) { root.action(5); return accept; }
             if (root.page != 0) { return reject; }
             if (event.text == " ") { root.action(0); return accept; }
@@ -269,7 +276,7 @@ export component PortableWindow inherits Window {
                     ActionButton { label: root.overtime ? "Finish" : "Reset cycle"; height: 28px; quiet: true; timer-shortcuts: true; accent: root.accent; clicked => { root.action(root.overtime ? 4 : 8); } }
                     ActionButton { label: "Quit"; height: 28px; quiet: true; timer-shortcuts: true; accent: root.accent; clicked => { root.action(9); } }
                 }
-                Text { text: "Space  Start / pause     R  Restart     S  Skip"; color: Ink.muted; font-size: 10px; height: 18px; horizontal-alignment: center; }
+                Text { text: "Space  Start / pause   R  Restart   S  Skip\nX  Stop   F  Finish during overtime"; color: Ink.muted; font-size: 10px; height: 30px; horizontal-alignment: center; vertical-alignment: center; }
             }
             if root.page == 1: VerticalLayout {
                 spacing: 10px;
