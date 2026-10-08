@@ -2,6 +2,11 @@
 
 **[Product website](https://aungmyokyaw.github.io/rusty-pomodoro/)**
 
+[![License: AGPL v3+](https://img.shields.io/badge/License-AGPL%20v3%2B-blue.svg?style=flat-square)](LICENSE)
+![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust&logoColor=white)
+![macOS AppKit](https://img.shields.io/badge/macOS-AppKit-555555?style=flat-square&logo=apple&logoColor=white)
+![Slint UI](https://img.shields.io/badge/UI-Slint-2379F4?style=flat-square)
+
 A Rust Pomodoro desktop app rebuilt from the behavior of the installed Tomito app.
 
 The default macOS app uses native AppKit. Windows and Linux use the shared Slint UI; those platforms build, but runtime behavior is not tested.
@@ -47,3 +52,7 @@ The app includes focus and break timers, configurable cycles, themes, shortcuts,
 - [Performance measurements](docs/PERFORMANCE.md)
 
 This is not a complete pixel-identical or AppleScript-compatible replacement. No original executable or proprietary assets are included.
+
+## License
+
+Licensed under the GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE).
