@@ -29,8 +29,13 @@ cargo run --locked --release --features slint-ui --bin rusty-pomodoro-slint
 open "dist/Rusty Pomodoro Slint.app"
 ```
 
-Timer/settings/statistics use the same custom layout, colors and bundled Hack font on
-all supported desktop backends. Slint 1.18.1 uses Winit and software rendering only;
+Timer/settings/statistics use the same warm-dark layout and accent themes on
+all supported desktop backends. Bundled Noto Sans labels and Hack timer/data numerals
+keep controls readable and measurements stable. The window defaults to 420×560 logical
+pixels (minimum 380×560). Settings have Durations, Behavior and Appearance subpanels;
+Save/Discard stay fixed and drafts survive tab switches. Theme choices preview before
+saving. Statistics show all seven days without scrolling; CSV export offers Show file
+on macOS. A reserved feedback row prevents layout jumps. Slint 1.18.1 uses Winit and software rendering only;
 no GPU renderer is enabled. Built-in scrolling style is pinned to Fluent in
 `.cargo/config.toml`. Native window borders/title bars still differ by OS.
 This is an implemented, measured prototype, not a claim of Windows/Linux runtime validation.
@@ -42,11 +47,14 @@ It also appears in the macOS Dock with its own stopwatch icon.
 Closing its macOS window hides it; clicking the Dock icon or tray **Show timer** restores it.
 Quit and reopen an already-running older instance to load the Dock fix. On Windows/Linux,
 closing exits; hide-on-start/launch is ignored to avoid stranding a trayless app.
-Tray/audio/global-shortcut/sleep integration is not implemented there. Screen-reader
-support is not enabled in the current minimal feature configuration.
+Tray/audio/global-shortcut/sleep integration is not implemented there. Slint accessibility
+is enabled, exposing labelled buttons, fields, checkboxes and choices to native accessibility
+APIs. This is not a claim of full VoiceOver/other screen-reader validation.
 
 Local keys: Space/R/S/X/F, Escape (return to timer). Numeric settings are drafts until
-**Apply and save**. Preview sound uses the selected draft. Configuration/history location
+**Apply and save**; field errors identify invalid whole numbers and range adjustments
+are reported. Space still starts/pauses on Timer when navigation or auxiliary buttons
+have focus; Return activates the focused button. Preview sound uses the selected draft. Configuration/history location
 is shared with other variants by default; use `RUSTY_POMODORO_CONFIG_DIR` when comparing.
 
 ## Features
@@ -84,6 +92,9 @@ cargo test --features slint-ui --lib --bin rusty-pomodoro-slint
 cargo clippy --features slint-ui --bin rusty-pomodoro-slint -- -D warnings
 # Real Slint window: synthetic key/pointer events and persisted-state assertions
 RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin rusty-pomodoro-slint -- --smoke
+# Real software-rendered captures at default/minimum/expanded desktop sizes:
+# Includes synthetic history only in the isolated test directory; writes PPM images.
+RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" RUSTY_POMODORO_CAPTURE_DIR="$(mktemp -d)" cargo run --features slint-ui --bin rusty-pomodoro-slint -- --smoke-visual
 # Actual 60-second expiry while hidden, restore and recorded activity:
 RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin rusty-pomodoro-slint -- --smoke-expiry
 # Dock icon and actual Dock-click restoration (macOS Accessibility required):

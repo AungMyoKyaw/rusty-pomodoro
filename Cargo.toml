@@ -23,7 +23,7 @@ slint-ui = ["dep:slint"]
 eframe = { version = "0.36", optional = true, default-features = false, features = ["glow", "x11"] }
 egui = { version = "0.36.2", optional = true, default-features = false }
 libc = "0.2"
-slint = { version = "=1.18.1", optional = true, default-features = false, features = ["std", "compat-1-18", "backend-winit", "renderer-software", "unstable-winit-030"] }
+slint = { version = "=1.18.1", optional = true, default-features = false, features = ["std", "compat-1-18", "backend-winit", "renderer-software", "unstable-winit-030", "accessibility"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
