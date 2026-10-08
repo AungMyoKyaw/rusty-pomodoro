@@ -1,0 +1,115 @@
+\clearpage
+\section{Persistence: two plain-text formats}
+
+The app has no database, no serialization framework, and no \texttt{serde}. Both stores
+are plain text with a hand-written parser, and both are written atomically.
+
+\subsection{Where the files live}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  p/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=46mm,minimum height=10mm},
+  d/.style={p,draw=mandarin!70!black,fill=datafill},
+]
+  \node[p] (mac) {\textbf{macOS}\\\texttt{\$HOME/Library/Application Support/tomito-rs/}};
+  \node[p] (win) {\textbf{Windows}\\\texttt{\%APPDATA\%/tomito-rs/}};
+  \node[p] (lin) {\textbf{Linux}\\\texttt{\$XDG\_CONFIG\_HOME/tomito-rs/} or \texttt{\$HOME/.config/tomito-rs/}};
+  \node[d] (f1) at (0,-3.4) {\texttt{settings.conf}\\[1mm]{\tiny 21 lines, \texttt{key=value}}};
+  \node[d] (f2) at (0,-5.2) {\texttt{activities.csv}\\[1mm]{\tiny one line per activity}};
+  \draw[e] (mac.south) -- (f1.north);
+  \draw[e] (win.south) -- (f1.north);
+  \draw[e] (lin.south) -- (f1.north);
+  \draw[e] (f1) -- (f2);
+  \node[note, anchor=west, text width=52mm] at (1.0,-4.3)
+    {\texttt{TOMITO\_CONFIG\_DIR} overrides the directory entirely, which is how the
+     test suite gives every test its own sandbox.};
+\end{tikzpicture}
+\caption{\file{config::config\_dir()} picks the platform directory. The override
+environment variable is the only configuration the app reads at startup.}
+\label{fig:paths}
+\end{figure}
+
+\subsection{\texttt{settings.conf}: write it, read it, clamp it}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{serialize}\\[1mm]\texttt{writeln!(text, "{}=\{\}",\\   stringify!(\$field), self.\$field)}};
+  \node[g] (b) {\textbf{save}\\[1mm]write to \texttt{settings.conf.tmp}\\\scriptsize then \texttt{fs::rename} into place};
+  \node[b] (c) {\textbf{parse}\\[1mm]split on the first \texttt{=}, trim both sides};
+  \node[k] (d) {\textbf{clamp}\\[1mm]\texttt{session\_minutes} $\in [1,180]$\\\texttt{short\_break\_minutes} $\in [1,60]$\\\texttt{long\_break\_minutes} $\in [1,120]$\\\texttt{long\_break\_cycle} $\in [2,10]$};
+  \node[b] (e) {\textbf{unknown key}\\[1mm]\texttt{\_ => \{\}} --- ignored, not an error};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e);
+\end{tikzpicture}
+\caption{The settings pipeline. Every numeric field is range-checked on read, so a
+hand-edited file cannot produce a 9999-minute session.}
+\label{fig:settings}
+\end{figure}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{40mm} p{30mm} p{70mm}@{}}
+\toprule
+\textbf{Field} & \textbf{Default} & \textbf{Notes} \\
+\midrule
+\texttt{session\_minutes} & 25 & clamped to 1--180 \\
+\texttt{short\_break\_minutes} & 5 & clamped to 1--60 \\
+\texttt{long\_break\_minutes} & 15 & clamped to 1--120 \\
+\texttt{long\_break\_cycle} & 4 & clamped to 2--10 \\
+\texttt{auto\_start\_session} & true & read by \texttt{complete\_current()} \\
+\texttt{auto\_start\_break} & true & read by \texttt{complete\_current()} \\
+\texttt{disable\_breaks} & false & read by \texttt{advance()} \\
+\texttt{disable\_long\_breaks} & false & read by \texttt{advance()} \\
+\texttt{show\_completed\_only} & true & filters the statistics view \\
+\texttt{hide\_on\_start} & false & raises \texttt{hide\_requested} \\
+\texttt{keep\_in\_front} & false & window level \\
+\texttt{hide\_on\_launch} & false & applied once in \texttt{App::new} \\
+\texttt{show\_on\_finish} & true & raises \texttt{show\_requested} \\
+\texttt{overtime} & false & display mode + deferred completion \\
+\texttt{pause\_on\_sleep} & true & \texttt{app.sleep()} \\
+\texttt{resume\_on\_wake} & true & \texttt{app.wake()} \\
+\texttt{ticking\_sound} & false & per-second tick \\
+\texttt{mute\_ticking\_on\_break} & true & suppresses the tick during breaks \\
+\texttt{theme} & Flamingo & one of five \\
+\texttt{notification\_sound} & Ping & one of twelve \\
+\bottomrule
+\end{tabular}
+\caption{All 21 settings fields. Every one of them is read from exactly one place in the
+code, which is why the struct can be \texttt{Copy}.}
+\end{table}
+
+\subsection{When settings are saved}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=42mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {a setting changes\\\scriptsize eg. a checkbox in the egui panel};
+  \node[k] (b) {\texttt{settings\_dirty = true}};
+  \node[b] (c) {\texttt{should\_save()} returns true};
+  \node[g] (d) {\textbf{AppKit:} \texttt{refresh()} saves immediately\\\textbf{egui:} \texttt{effects()} waits 2\,s};
+  \node[b] (e) {\texttt{save\_settings()}\\\scriptsize \texttt{fs::rename} makes it atomic};
+  \node[k] (f) {\texttt{settings\_dirty = false}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e); \draw[e] (e)--(f);
+\end{tikzpicture}
+\caption{Saving is deferred, not immediate. The egui shell coalesces writes so that
+dragging a slider does not hit the disk on every pixel.}
+\label{fig:save}
+\end{figure}
+
+\keybox{mint}{%
+\textbf{Why \code{fs::rename}?} On all three target platforms \code{rename} within the
+same directory is atomic: a reader sees either the old file or the new one, never a
+partial write. The \code{.tmp} suffix also means a crashed write leaves a stray file
+instead of a truncated \code{settings.conf}.}

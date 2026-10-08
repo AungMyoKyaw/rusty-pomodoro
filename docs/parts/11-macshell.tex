@@ -1,0 +1,158 @@
+\clearpage
+\section{The AppKit shell}
+
+\file{mac\_shell.rs} is 848 lines and contains no rendering code at all. It builds real
+AppKit objects with absolute frames, and lets the operating system draw them.
+
+\subsection{The object graph}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  o/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=34mm,minimum height=9mm},
+  c/.style={o,draw=accent!65,fill=intentfill,text=accent!55!black},
+  v/.style={o,draw=mint!70!black,fill=shellfill},
+]
+  \node[c] (ctrl) {\textbf{Controller}\\\scriptsize \texttt{define\_class!} with \texttt{Ivars}};
+  \node[o] (app) at (-5.2,1.6) {\texttt{NSApplication}\\\scriptsize \texttt{Accessory} policy};
+  \node[o] (win) at (-5.2,0.0) {\texttt{NSWindow} 380$\times$300\\\scriptsize \texttt{releasedWhenClosed = false}};
+  \node[o] (bar) at (-5.2,-1.6) {\texttt{NSStatusItem}\\\scriptsize with a 10-item \texttt{NSMenu}};
+  \node[o] (menu) at (-5.2,-3.2) {\texttt{NSMenu}\\\scriptsize the app menu with key equivalents};
+
+  \node[v] (views) at (5.2,1.6) {\textbf{Views}\\\scriptsize 8 \texttt{NSTextField}s and \texttt{NSButton}s};
+  \node[v] (set) at (5.2,0.0) {\textbf{SettingsUi}\\\scriptsize built lazily on first open};
+  \node[v] (stat) at (5.2,-1.6) {\textbf{StatisticsUi}\\\scriptsize built lazily on first open};
+  \node[o] (alarm) at (5.2,-3.2) {\texttt{Option<NSTimer>}\\\scriptsize one one-shot timer};
+
+  \draw[e] (ctrl) -- (app); \draw[e] (ctrl) -- (win); \draw[e] (ctrl) -- (bar); \draw[e] (ctrl) -- (menu);
+  \draw[e] (ctrl) -- (views); \draw[e] (ctrl) -- (set); \draw[e] (ctrl) -- (stat); \draw[e] (ctrl) -- (alarm);
+\end{tikzpicture}
+\caption{Every AppKit object is a \texttt{Retained<T>} held in a struct field. Nothing
+is leaked, and nothing is freed early: \texttt{objc2} inserts the \texttt{release} calls.}
+\label{fig:appkit}
+\end{figure}
+
+\subsection{\texttt{refresh()}: the frame callback}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  s/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=30mm,minimum height=9mm},
+  k/.style={s,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={s,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[s] (r1) {\textbf{(1)} invalidate the old timer\\\scriptsize \texttt{alarm.take()}};
+  \node[s] (r2) {\textbf{(2)} update every label\\\scriptsize only if the string changed};
+  \node[s] (r3) {\textbf{(3)} consume the flags\\\scriptsize \texttt{mem::take}};
+  \node[s] (r4) {\textbf{(4)} save settings\\\scriptsize if \texttt{should\_save()}};
+  \node[g] (r5) {\textbf{(5)} arm one \texttt{NSTimer}\\\scriptsize \texttt{repeats: false}\\\texttt{tolerance: 0.02}};
+  \foreach \a/\b in {r1/r2,r2/r3,r3/r4,r4/r5} \draw[e] (\a) -- (\b);
+  \node[k] (loop) at (0,-6.4) {\textbf{next wake-up} $\rightarrow$ \texttt{tick:} $\rightarrow$ \texttt{refresh()}};
+  \draw[ethin, softink] (r5) -- (loop);
+\end{tikzpicture}
+\caption{\texttt{refresh()} is the only place that touches the views. It is called from
+the timer, from every button action, and from the sleep/wake notifications.}
+\label{fig:refresh}
+\end{figure}
+
+\subsection{The main window layout}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=ink!55,line width=0.8pt,rounded corners=2pt] (0,0) rectangle (150,120);
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (2,116) {\texttt{NSWindow} 380$\times$300, \texttt{Titled | Closable | Miniaturizable}};
+
+  \fill[corefill] (10,96) rectangle (140,108);
+  \node[anchor=west,font=\tiny\sffamily,text=pastel!45!black] at (12,104) {\texttt{activity} label, 16\,pt, centred, theme colour};
+
+  \fill[corefill] (10,52) rectangle (140,90);
+  \node[anchor=west,font=\tiny\sffamily,text=pastel!45!black] at (12,74) {\texttt{time} label, 58\,pt monospaced digits};
+
+  \fill[corefill] (10,40) rectangle (140,48);
+  \node[anchor=west,font=\tiny\sffamily,text=pastel!45!black] at (12,46) {\texttt{counter} label, 12\,pt};
+
+  \foreach \x in {28,72,116} {
+    \fill[mint!30] (\x,18) rectangle (\x+34,30);
+    \node[anchor=center,font=\tiny\sffamily,text=mint!60!black] at ({\x+17},26) {button};
+  }
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (10,12)
+    {\texttt{toggle} (Start/Pause) \quad \texttt{restart} \quad \texttt{skip}};
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (10,4)
+    {\texttt{stop} \quad \texttt{settings} \quad \texttt{statistics} \quad \texttt{status}};
+\end{tikzpicture}
+\caption{The main window is built with absolute \texttt{NSRect} frames in
+\texttt{build()}. There is no auto-layout, so the positions are exact and the window
+cannot be resized.}
+\label{fig:window}
+\end{figure}
+
+\subsection{The action-tag dispatch}
+
+Every button and menu item calls the same \texttt{act:} selector, and the \texttt{tag}
+field decides what happens. This is the entire input layer.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  t/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=3pt,
+            font=\scriptsize\sffamily,text width=22mm,minimum height=8mm},
+  a/.style={t,draw=accent!65,fill=accent!12,text=accent!55!black},
+  b/.style={t,draw=mint!70!black,fill=shellfill,text=mint!60!black},
+]
+  \node[a] (t0) {\texttt{0} toggle};
+  \node[a] (t1) {\texttt{1} restart};
+  \node[a] (t2) {\texttt{2} skip};
+  \node[a] (t3) {\texttt{3} stop};
+  \node[a] (t4) {\texttt{4} finish};
+  \node[b] (t5) {\texttt{5} show};
+  \node[b] (t6) {\texttt{6} settings};
+  \node[b] (t7) {\texttt{7} statistics};
+  \node[b] (t8) {\texttt{8} reset counter};
+  \node[b] (t9) {\texttt{9} quit};
+  \node[b] (t10) {\texttt{10} apply};
+  \node[b] (t11) {\texttt{11} export};
+  \node[b] (t12) {\texttt{12} reset stats};
+  \node[b] (t13) {\texttt{13} today};
+  \node[b] (t14) {\texttt{14} week};
+  \node[b] (t15) {\texttt{15} preview};
+
+  \foreach \n in {t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15} {
+    \draw[ethin, softink!35] (\n.south) -- ++(0,-4mm);
+  }
+  \node[note, below=6mm of t7, text width=120mm] {%
+    Red tags mutate the timer directly. Blue tags open panels or perform shell actions.
+    Every one of them ends with \texttt{self.refresh()}.};
+\end{tikzpicture}
+\caption{Sixteen tags, one selector. Adding a control means adding a \texttt{tag} and a
+line in the \texttt{match}.}
+\label{fig:tags}
+\end{figure}
+
+\subsection{Window closing is not quitting}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=42mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {user closes the\\\texttt{main window}};
+  \node[k] (b) {\texttt{windowShouldClose:}\\\scriptsize returns \texttt{false}};
+  \node[g] (c) {\texttt{window.orderOut(None)}\\\scriptsize the window hides, the app keeps running};
+  \node[b] (d) {user closes a\\\texttt{panel window}};
+  \node[g] (e) {\texttt{apply\_controls()}\\\scriptsize settings are saved on close};
+  \node[b] (f) {user picks\\\texttt{Quit}};
+  \node[k] (g) {\texttt{NSApplication::terminate}\\\scriptsize \texttt{applicationWillTerminate:} saves};
+  \draw[e] (a)--(b); \draw[e] (b)--(c);
+  \draw[e] (d)--(e);
+  \draw[e] (f)--(g);
+\end{tikzpicture}
+\caption{\texttt{applicationShouldTerminateAfterLastWindowClosed} returns \texttt{false},
+so closing the window never quits the app. The menu bar item is the way back.}
+\label{fig:close}
+\end{figure}

@@ -1,0 +1,89 @@
+\clearpage
+\section{The release build}
+
+\subsection{The profile}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\texttt{opt-level = "z"}\\\scriptsize optimise for size, not speed};
+  \node[b] (b) {\texttt{lto = true}\\\scriptsize fat LTO across the whole crate};
+  \node[b] (c) {\texttt{codegen-units = 1}\\\scriptsize one unit, so LTO sees everything};
+  \node[k] (d) {\texttt{panic = "abort"}\\\scriptsize no unwinding machinery};
+  \node[b] (e) {\texttt{strip = true}\\\scriptsize no symbol table};
+  \node[b] (f) {\texttt{incremental = false}\\\scriptsize no build cache in the binary};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e); \draw[e] (e)--(f);
+\end{tikzpicture}
+\caption{Six settings, all aimed at the same goal. The README is explicit that these
+should be measured, not trusted: \texttt{ls -lh target/release/tomito} and an idle
+memory reading are the real evidence.}
+\label{fig:profile}
+\end{figure}
+
+\subsection{Packaging}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\texttt{cargo build --locked --release}};
+  \node[b] (b) {\texttt{cp target/release/tomito}\\\texttt{dist/Tomito RS.app/Contents/MacOS/}};
+  \node[b] (c) {\texttt{cp packaging/Info.plist}\\\texttt{Contents/Info.plist}};
+  \node[g] (d) {\texttt{codesign --force --sign -}\\\scriptsize ad-hoc signature};
+  \node[b] (e) {\texttt{du -sh "dist/Tomito RS.app"}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e);
+\end{tikzpicture}
+\caption{\file{scripts/package-macos.sh} is five commands. There is no DMG, no notarisation,
+and no installer.}
+\label{fig:package}
+\end{figure}
+
+\subsection{What is deliberately not implemented}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{44mm} p{96mm}@{}}
+\toprule
+\textbf{Feature} & \textbf{Why it is absent} \\
+\midrule
+Menu-bar status item (egui build) & \file{native.rs} provides one, but the egui build does not use it \\
+AppleScript command suite & needs a scripting dictionary and \texttt{sdef} tooling \\
+Global hotkeys (egui build) & Carbon only; the egui build has app-focused keys only \\
+Sleep and wake handling (egui build) & \file{native.rs} provides it, but only on macOS \\
+Audio playback & sound names are stored and \texttt{NSSound::soundNamed} is called, but no audio files are bundled \\
+Wayland & the \texttt{eframe} features are \texttt{glow} and \texttt{x11} only \\
+\bottomrule
+\end{tabular}
+\caption{The README's ``Not implemented'' list. Each item is a platform API that lies
+outside the egui scope of this build, not a missing piece of the core.}
+\end{table}
+
+\subsection{The size and memory posture}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=42mm,minimum height=10mm},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{renderer}\\\texttt{glow}, not \texttt{wgpu}};
+  \node[b] (b) {\textbf{eframe defaults}\\\texttt{default-features = false}};
+  \node[b] (c) {\textbf{no textures}\\\scriptsize the dial is a polyline, not an image};
+  \node[b] (d) {\textbf{no icon fonts}\\\scriptsize one TTF, no emoji fallback};
+  \node[b] (e) {\textbf{no threads}\\\scriptsize no async runtime, no background work};
+  \node[g] (f) {\textbf{repaint budget}\\\scriptsize one wake-up per displayed second};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e); \draw[e] (e)--(f);
+\end{tikzpicture}
+\caption{Seven independent decisions that each shave something off the binary. None of
+them is a compromise in behaviour: the timer still works identically.}
+\label{fig:posture}
+\end{figure}

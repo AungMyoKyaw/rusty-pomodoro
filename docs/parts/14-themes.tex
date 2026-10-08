@@ -1,0 +1,78 @@
+\clearpage
+\section{Themes}
+
+Five themes, each a \texttt{Palette} of five colours. The AppKit shell uses one of them
+for a single label; the egui shell pushes all five into the global style.
+
+\subsection{The five palettes}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=softink!30,line width=0.5pt] (0,0) rectangle (150,104);
+
+  % one row per theme: name + five swatches
+  \foreach \i/\name/\ca/\cb/\cp/\ct/\cd in {
+    0/Flamingo/t0a/t0b/t0p/t0t/t0d,
+    1/Mint/t1a/t1b/t1p/t1t/t1d,
+    2/Mandarin/t2a/t2b/t2p/t2t/t2d,
+    3/Monochrome/t3a/t3b/t3p/t3t/t3d,
+    4/Pastel/t4a/t4b/t4p/t4t/t4d}
+  {
+    \pgfmathsetmacro{\y}{92-\i*20}
+    \node[anchor=west,font=\tiny\sffamily\bfseries,text=ink] at (2,{\y+8}) {\name};
+    \fill[\ca]  (2,{\y})       rectangle (26,{\y+10});
+    \fill[\cb]  (30,{\y})      rectangle (54,{\y+10});
+    \fill[\cp]  (58,{\y})      rectangle (82,{\y+10});
+    \fill[\ct]  (86,{\y})      rectangle (110,{\y+10});
+    \fill[\cd]  (114,{\y})     rectangle (138,{\y+10});
+  }
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (2,-4)
+    {accent\quad background\quad panel\quad text\quad dim\_text};
+\end{tikzpicture}
+\caption{The five palettes from \file{theme.rs}. Every one of them is dark, and every
+accent is bright enough to read against its own background.}
+\label{fig:themes}
+\end{figure}
+
+\subsection{How a theme reaches the screen}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{user picks a theme}\\\scriptsize combo box in the footer or settings};
+  \node[k] (b) {\texttt{app.set\_theme(theme)}};
+  \node[b] (c) {\texttt{settings.theme = theme}\\\texttt{apply\_settings()}\\\texttt{palette = palette(theme)}};
+  \node[g] (d) {\textbf{egui:}\\\texttt{theme::apply(ctx, palette)}\\\scriptsize rewrites \texttt{visuals} and \texttt{text\_styles}};
+  \node[g] (e) {\textbf{AppKit:}\\\texttt{refresh()} reads the RGB triple\\\scriptsize and sets \texttt{activity.setTextColor}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (c)--(e);
+\end{tikzpicture}
+\caption{One \texttt{Palette} struct, two very different applications of it. The egui
+path rewrites the global style; the AppKit path sets one colour on one label.}
+\label{fig:themepath}
+\end{figure}
+
+\subsection{The font}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=44mm,minimum height=10mm},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{one font file}\\\texttt{assets/Hack-Regular.ttf}};
+  \node[g] (b) {\textbf{embedded at compile time}\\\texttt{include\_bytes!("../assets/Hack-Regular.ttf")}};
+  \node[b] (c) {\textbf{installed for both families}\\\texttt{Proportional} and \texttt{Monospace}};
+  \node[b] (d) {\textbf{302 KiB}\\\scriptsize replaces four default fonts and the emoji fallback};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d);
+\end{tikzpicture}
+\caption{The font is the only binary asset in the project. There are no icons, no images,
+and no sound files.}
+\label{fig:font}
+\end{figure}

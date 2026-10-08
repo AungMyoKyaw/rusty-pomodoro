@@ -1,0 +1,125 @@
+\clearpage
+\section{One binary, two personalities: the \texttt{cfg} switch}
+
+\file{src/main.rs} is 27 lines and does nothing but decide which shell to compile.
+Reading it top to bottom explains the whole build matrix.
+
+\begin{lstlisting}[caption={\file{src/main.rs}, complete.}]
+#[cfg(feature = "egui-ui")] fn main() -> eframe::Result { egui_shell::run() }
+
+#[cfg(all(target_os = "macos", not(feature = "egui-ui")))]
+fn main() { mac_shell::run(); }
+
+#[cfg(all(not(target_os = "macos"), not(feature = "egui-ui")))]
+compile_error!("Build on Windows/Linux with --features egui-ui.");
+\end{lstlisting}
+
+\subsection{The matrix this produces}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  head/.style={font=\scriptsize\sffamily\bfseries, text=ink},
+  cellok/.style={rounded corners=2pt, draw=mint!70!black, fill=mint!22, minimum height=8mm,
+                 minimum width=30mm, align=center, font=\scriptsize\sffamily},
+  cellno/.style={rounded corners=2pt, draw=accent!60, fill=accent!12, minimum height=8mm,
+                 minimum width=30mm, align=center, font=\scriptsize\sffamily, text=accent!55!black},
+]
+  \node[head] at (-1.7,2.6) {build};
+  \node[cellok, fill=ink!8, draw=softink!40] (h1) at (1.6,2.6) {\texttt{cargo build}\\\scriptsize (default)};
+  \node[cellok, fill=ink!8, draw=softink!40] (h2) at (4.6,2.6) {\texttt{--features}\\\scriptsize \texttt{egui-ui}};
+
+  % --- row 1: macOS default
+  \node[head, anchor=east] at (-0.6,1.2) {macOS};
+  \node[cellok] (r1a) at (1.6,1.2) {\textbf{mac\_shell}\\\scriptsize AppKit, Carbon};
+  \node[cellok] (r1b) at (4.6,1.2) {\textbf{egui\_shell}\\\scriptsize + \file{native.rs}};
+
+  % --- row 2: linux default
+  \node[head, anchor=east] at (-0.6,0.0) {Linux};
+  \node[cellno] (r2a) at (1.6,0.0) {\texttt{compile\_error!}};
+  \node[cellok] (r2b) at (4.6,0.0) {\textbf{egui\_shell}\\\scriptsize no status item};
+
+  % --- row 3: windows default
+  \node[head, anchor=east] at (-0.6,-1.2) {Windows};
+  \node[cellno] (r3a) at (1.6,-1.2) {\texttt{compile\_error!}};
+  \node[cellok] (r3b) at (4.6,-1.2) {\textbf{egui\_shell}\\\scriptsize no status item};
+
+  \foreach \a/\b in {r1a/r1b,r2a/r2b,r3a/r3b} \draw[ethin, softink!30] (\a) -- (\b);
+
+  \end{tikzpicture}
+
+\vspace{2mm}
+{\small
+\textcolor{pastel!45!black}{\texttt{app}, \texttt{timer}, \texttt{config}, \texttt{stats}}
+\quad\textcolor{softink}{|}\quad
+\textcolor{mint!60!black}{\texttt{mac\_shell}, \texttt{hotkeys}} (macOS, no feature)\\[1mm]
+\textcolor{accent!55!black}{\texttt{egui\_shell}, \texttt{native}, \texttt{theme}, \texttt{ui::*}} (with feature)
+}
+\caption{The three build outcomes. The four core modules are compiled in every row;
+only the shell differs.}
+\label{fig:cfg}
+\end{figure}
+
+\subsection{What each module is gated on}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{34mm} p{40mm} p{66mm}@{}}
+\toprule
+\textbf{Gate on \texttt{mod}} & \textbf{Compiled when} & \textbf{Reason it exists} \\
+\midrule
+\texttt{app}, \texttt{config}, \texttt{stats}, \texttt{timer} & always & the portable core \\
+\texttt{mac\_shell}, \texttt{hotkeys} & \texttt{macOS} \texttt{\&\& !egui-ui} & the default macOS build \\
+\texttt{egui\_shell}, \texttt{native}, \texttt{theme}, \texttt{ui} & \texttt{feature = "egui-ui"} & the cross-platform build \\
+\bottomrule
+\end{tabular}
+\caption{The full \texttt{mod} list from \file{main.rs}. Nothing is gated on a runtime
+condition: the choice is made once, at compile time.}
+\end{table}
+
+\subsection{Why a Cargo feature rather than a runtime check}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  box/.style={rounded corners=2pt,draw=ink!45,fill=white,align=center,inner sep=5pt,
+              font=\scriptsize\sffamily,text width=40mm,minimum height=13mm},
+  good/.style={box,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+  bad/.style={box,draw=accent!60,fill=accent!10,text=accent!55!black},
+]
+  \node[bad]  (a) at (0,0) {\textbf{runtime check}\\[1mm]\texttt{if cfg!(feature)} \dots\\[1mm]
+     {\tiny the other branch is still compiled in}};
+  \node[good] (b) at (0,-2.6) {\textbf{cargo feature}\\[1mm]\texttt{cfg(feature)} on the \texttt{mod} item\\[1mm]
+     {\tiny the other branch is never emitted}};
+
+  \node[good] (c) at (5.4,0) {\tiny only the selected shell's\\[1mm]\code{eframe} / \code{egui} / \code{winit}\\[1mm]
+     dependencies are downloaded and linked};
+  \node[good] (d) at (5.4,-2.6) {\tiny the core compiles and\\[1mm]\code{cargo test} runs with\\[1mm]no display attached};
+
+  \draw[ethin, softink] (a.east) -- (c.west);
+  \draw[ethin, softink] (b.east) -- (d.west);
+\end{tikzpicture}
+\caption{A Cargo feature removes the other branch at compile time, so the default macOS
+build never links \texttt{eframe}, \texttt{egui}, or \texttt{winit} at all.}
+\label{fig:whyfeature}
+\end{figure}
+
+\begin{lstlisting}[caption={\file{Cargo.toml}. The whole egui stack is optional, and
+\code{default = []} means an ordinary \code{cargo build} produces the AppKit app.}]
+[features]
+default = []
+egui-ui = ["dep:eframe", "dep:egui"]
+
+[dependencies]
+eframe = { version = "0.36", optional = true, default-features = false, features = ["glow", "x11"] }
+egui   = { version = "0.36.2", optional = true, default-features = false }
+\end{lstlisting}
+
+\keybox{mint}{%
+\textbf{Three deliberate cuts in \code{default-features = false}.}
+\code{eframe} would normally pull in an accessibility stack, a link handler, a web
+screen reader, and a serde-backed persistence layer; \code{egui} would pull in a
+default font atlas with emoji fallbacks. All of it is disabled. The one 302\,KiB
+\file{Hack-Regular.ttf} in \file{assets/} is embedded with \texttt{include\_bytes!}
+and installed as the \emph{only} font for both the proportional and monospace
+families.}

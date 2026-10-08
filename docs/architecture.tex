@@ -1,0 +1,181 @@
+% =====================================================================
+%  Tomito-RS -- Visual Architecture Guide
+%  Build: pdflatex architecture.tex  (twice, for the ToC)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{pdflscape}
+
+\usetikzlibrary{positioning,shapes.geometric,shapes.arrows,shapes.symbols,
+                arrows,calc,fit,backgrounds,decorations.pathmorphing,
+                decorations.markings,decorations.pathreplacing,patterns,
+                matrix,chains,backgrounds}
+
+\geometry{top=22mm,bottom=20mm,left=20mm,right=20mm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\renewcommand{\arraystretch}{1.15}
+
+% ---------- palette (taken from src/theme.rs) ----------
+\definecolor{ink}      {HTML}{1B1418}
+\definecolor{accent}   {HTML}{E84A5F}   % Flamingo
+\definecolor{mint}     {HTML}{3FC1A0}
+\definecolor{mandarin} {HTML}{F28C28}
+\definecolor{pastel}   {HTML}{A8C6E8}
+\definecolor{panel}    {HTML}{2A1F24}
+\definecolor{paper}    {HTML}{FBF9FA}
+\definecolor{softink}  {HTML}{6E6068}
+
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=mint,citecolor=accent}
+
+% ---------- theme swatch colours (from src/theme.rs) ----------
+\definecolor{t0a}{HTML}{E84A5F} \definecolor{t0b}{HTML}{1B1418}
+\definecolor{t0p}{HTML}{2A1F24} \definecolor{t0t}{HTML}{F7ECEE}
+\definecolor{t0d}{HTML}{B09AA0}
+\definecolor{t1a}{HTML}{3FC1A0} \definecolor{t1b}{HTML}{111A18}
+\definecolor{t1p}{HTML}{1C2A27} \definecolor{t1t}{HTML}{ECF7F3}
+\definecolor{t1d}{HTML}{93ABA4}
+\definecolor{t2a}{HTML}{F28C28} \definecolor{t2b}{HTML}{1C1610}
+\definecolor{t2p}{HTML}{2B2218} \definecolor{t2t}{HTML}{FAF1E6}
+\definecolor{t2d}{HTML}{B4A28C}
+\definecolor{t3a}{HTML}{D8D8D8} \definecolor{t3b}{HTML}{141414}
+\definecolor{t3p}{HTML}{242424} \definecolor{t3t}{HTML}{F0F0F0}
+\definecolor{t3d}{HTML}{9A9A9A}
+\definecolor{t4a}{HTML}{A8C6E8} \definecolor{t4b}{HTML}{1A1C22}
+\definecolor{t4p}{HTML}{282B33} \definecolor{t4t}{HTML}{EEF1F6}
+\definecolor{t4d}{HTML}{9DA4B2}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Tomito-RS \textbar\ Architecture}
+\rhead{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyfoot[C]{\footnotesize\color{softink}generated from the source tree -- diagrams, not screenshots}
+
+% ---------- headings ----------
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\Large\sffamily\bfseries\color{ink}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalfont\large\sffamily\bfseries\color{accent}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\sffamily\bfseries\color{softink}}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.1ex plus .2ex minus .1ex}{0.6ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus .2ex minus .1ex}{0.4ex}
+
+% ---------- code ----------
+\definecolor{codecomment}{HTML}{7A8A80}
+\definecolor{codestring} {HTML}{3FC1A0}
+\definecolor{codekey}    {HTML}{F28C28}
+\definecolor{codebase}   {HTML}{2A1F24}
+\lstdefinestyle{tomito}{
+  backgroundcolor=\color{white},
+  frame=single,
+  rulecolor=\color{softink!35},
+  framesep=4pt,
+  frameround=tttt,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{codecomment}\itshape,
+  stringstyle=\color{codestring},
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  breakindent=0pt,
+  columns=fullflexible,
+  keepspaces=true,
+  tabsize=4,
+  numbers=none,
+  xleftmargin=2pt,
+}
+\lstset{style=tomito}
+
+% ---------- caption ----------
+\captionsetup{font=small,labelfont={sf,bf,color=ink},textfont={sf,color=softink}}
+
+% ---------- tikz shared styles ----------
+\colorlet{corefill}{pastel!28}
+\colorlet{shellfill}{mint!22}
+\colorlet{datafill}{mandarin!22}
+\colorlet{intentfill}{accent!16}
+\colorlet{soft}{softink!10}
+
+\tikzset{
+  >=stealth,
+  every node/.style={font=\small},
+  % --- nodes
+  mod/.style   = {rounded corners=2pt, draw=ink!55, fill=white, align=center,
+                  inner sep=5pt, line width=0.7pt, font=\small\sffamily},
+  core/.style  = {mod, draw=pastel!90!black, fill=corefill},
+  shell/.style = {mod, draw=mint!80!black, fill=shellfill},
+  data/.style  = {mod, draw=mandarin!80!black, fill=datafill},
+  intent/.style= {mod, draw=accent!70, fill=intentfill, text=accent!50!black},
+  osn/.style   = {mod, fill=soft, draw=softink!50, dashed},
+  lbl/.style   = {font=\scriptsize\sffamily\bfseries, text=softink},
+  tiny/.style  = {font=\scriptsize\sffamily, text=softink},
+  note/.style  = {font=\scriptsize\sffamily, align=center, text=softink},
+  % --- edges
+  e/.style     = {-stealth, thick, draw=ink!70},
+  ethin/.style = {-stealth, draw=ink!45},
+  er/.style    = {e, draw=accent!75},
+  ed/.style    = {e, draw=mandarin!85!black},
+  es/.style    = {e, draw=mint!75!black},
+  vlabel/.style= {font=\scriptsize\sffamily, fill=white, inner sep=1.5pt, text=softink,
+                  align=center},
+}
+
+\newcommand{\file}[1]{{\ttfamily\small #1}}
+\newcommand{\code}[1]{{\ttfamily #1}}
+\newcommand{\hd}[1]{{\scriptsize\sffamily\bfseries #1}}
+\newcommand{\field}[1]{{\ttfamily\small #1}}
+\newcommand{\good}{\textcolor{mint!70!black}{\textbf{yes}}}
+\newcommand{\bad}{\textcolor{accent!80!black}{\textbf{no}}}
+
+% ---------- boxed callout ----------
+\newcommand{\keybox}[2]{%
+  \begin{center}
+  \begin{tikzpicture}
+    \node[draw=#1, fill=#1!10, rounded corners=3pt, line width=0.8pt,
+          inner sep=7pt, text width=.92\linewidth, align=left] (b) {\small #2};
+  \end{tikzpicture}
+  \end{center}}
+
+\begin{document}
+
+\input{parts/00-cover}
+\tableofcontents
+\clearpage
+\input{parts/01-overview}
+\input{parts/02-modules}
+\input{parts/03-cfg}
+\input{parts/04-timer}
+\input{parts/05-cycle}
+\input{parts/06-clock}
+\input{parts/07-effects}
+\input{parts/08-tick}
+\input{parts/09-persistence}
+\input{parts/10-stats}
+\input{parts/11-macshell}
+\input{parts/12-eguisheell}
+\input{parts/13-input}
+\input{parts/14-themes}
+\input{parts/15-build}
+\input{parts/16-tests}
+
+\end{document}

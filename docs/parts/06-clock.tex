@@ -1,0 +1,177 @@
+\clearpage
+\section{The clock, and the display it feeds}
+
+\subsection{Two clocks behind one type name}
+
+\file{timer.rs} defines a private \texttt{Clock} enum with one variant per platform.
+This is the only piece of the core that is platform-conditional, and it is 40 lines.
+
+\begin{lstlisting}[caption={\file{timer.rs} lines 4--59, abridged.}]
+#[derive(Clone, Copy, Debug)]
+struct Clock {
+    #[cfg(target_os = "macos")]      ticks:  u64,              // mach_continuous_time
+    #[cfg(not(target_os = "macos"))] instant: std::time::Instant,
+}
+impl Clock {
+    fn now() -> Self { /* one branch per platform */ }
+    fn elapsed(self) -> Duration {
+        #[cfg(target_os = "macos")]
+        {
+            static SCALE: OnceLock<(u32,u32)> = OnceLock::new();
+            let &(numer, denom) = SCALE.get_or_init(|| { /* mach_timebase_info */ });
+            let nanos = (Clock::now().ticks - self.ticks) as u128 * numer as u128
+                        / denom as u128;
+            Duration::from_nanos(nanos.min(u64::MAX as u128) as u64)
+        }
+        #[cfg(not(target_os = "macos"))]
+        { self.instant.elapsed() }
+    }
+}
+unsafe extern "C" { fn mach_continuous_time() -> u64; fn mach_timebase_info(..) -> i32; }
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  c/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=5pt,
+            font=\scriptsize\sffamily,text width=38mm,minimum height=12mm},
+  mac/.style={c,draw=mint!70!black,fill=mint!18},
+  oth/.style={c,draw=pastel!45!black,fill=corefill},
+]
+  \node[c, draw=softink!50, fill=soft, text width=44mm] (api) at (0,0)
+    {\textbf{Clock::now()} and \texttt{Clock::elapsed()}\\[1mm]
+     {\tiny the rest of \texttt{timer.rs} never asks which platform it is on}};
+
+  \node[mac] (m) at (-5.2,-3.4) {\textbf{macOS}\\[1mm]\texttt{mach\_continuous\_time()}\\[1mm]
+     {\tiny raw ticks, scaled by\\\texttt{mach\_timebase\_info()}\\\textit{numer/denom}}};
+  \node[oth] (o) at (5.2,-3.4) {\textbf{Linux / Windows}\\[1mm]\texttt{std::time::Instant::now()}\\[1mm]
+     {\tiny the monotonic clock\\\textit{that the OS guarantees}}};
+  \draw[e] (api.south) -- (m.north);
+  \draw[e] (api.south) -- (o.north);
+\end{tikzpicture}
+\caption{\texttt{Clock} is the entire platform abstraction of the core.}
+\label{fig:clock}
+\end{figure}
+
+\keybox{mint}{\textbf{Why \code{mach\_continuous\_time} and not
+\code{mach\_absolute\_time}?} The ``continuous'' variant keeps counting while the
+machine is asleep, which is what a Pomodoro timer wants: if the lid is shut for ten
+minutes, the session really did advance by ten minutes and
+\texttt{App::sleep()} decides separately whether to pause it. The timebase
+conversion is cached in a \code{OnceLock} because it is a constant for the lifetime
+of the process.}
+
+\subsection{Rounding: why a fresh timer shows 25:00, not 24:59}
+
+Two tiny functions carry all of the display logic, and both exist because the
+alternative was a visible one-second jitter.
+
+\begin{lstlisting}[caption={Round up, so the label is stable for a whole second.},basicstyle=\ttfamily\footnotesize]
+pub fn remaining\_display(\&self) -> Duration {
+    let remaining = self.remaining();
+    if remaining.is_zero() { return Duration::ZERO; }
+    Duration::from_secs(remaining.as_secs() + u64::from(remaining.subsec_nanos() != 0))
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Sleep exactly until the label would change --- not,basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize],basicstyle=\ttfamily\footnotesize]
+\texttt{duration - remaining}, the complement, and busy.}]
+pub fn next_display_change(&self) -> Duration {
+    let remaining = self.remaining();
+    if remaining.is_zero() { return Duration::from_secs(1); }
+    let nanos = remaining.subsec_nanos();
+    if nanos == 0 { Duration::from_secs(1) } else { Duration::from_nanos(u64::from(nanos)) }
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=softink!30,line width=0.5pt] (0,0) rectangle (150,62);
+  % timeline
+  \draw[-stealth, draw=ink!60] (8,46) -- (144,46);
+  \node[anchor=south west,font=\tiny\sffamily,text=softink] at (8,47) {\texttt{elapsed}};
+
+  % sub-second slivers
+  \foreach \fx/\fw/\flab in {20/16/{24:59.25}, 44/12/{24:59.75}, 68/16/{24:00.25}, 92/12/{24:00.75}, 116/14/{zero}}
+  {
+    \fill[accent!30] (\fx,42) rectangle ({\fx+\fw},44.5);
+    \draw[softink!40] (\fx,42) -- (\fx,47);
+    \node[anchor=north,font=\tiny\sffamily,text=softink,align=center] at ({\fx+\fw/2},40) {\flab};
+  }
+  % labels
+  \node[anchor=south,font=\tiny\sffamily\bfseries,text=softink] at (28,53) {displayed value};
+  \node[anchor=south,font=\tiny\sffamily\bfseries,text=accent!55!black] at (100,53) {wake-up instants};
+  \node[anchor=west,font=\tiny\sffamily,text=accent!55!black] at (116,56) {one per second};
+  \draw[er] (112,55) -- (118,47);
+
+  \end{tikzpicture}
+\end{figure}
+
+\begin{center}\small
+\begin{minipage}{0.92\linewidth}
+\texttt{remaining\_display()} rounds \emph{up}: with $0.25$\,s left the label still
+prints \texttt{24:59}, so it changes exactly when the fractional part reaches zero.
+
+\texttt{next\_display\_change()} returns the \emph{complement} of that, i.e.\ the time
+\emph{until} the boundary --- $0.75$\,s at the first sample above, not $0.25$\,s.
+\end{minipage}
+\end{center}
+
+\begin{figure}[H]
+\centering
+\caption{The two functions exist to keep each other honest: round up for the label, and
+sleep until the label would change.}
+\label{fig:rounding}
+\end{figure}
+
+\subsection{How each shell spends that delay}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{30mm} p{66mm} p{62mm}@{}}
+\toprule
+& \textbf{mac\_shell.rs} & \textbf{egui\_shell.rs} \\
+\midrule
+Idle timer & no timer armed & no repaint scheduled \\
+Running & \texttt{refresh()} ends with a one-shot \texttt{NSTimer} &
+\texttt{schedule\_repaint()} calls \texttt{ctx.request\_repaint\_after(d)} \\
+Tolerance & \texttt{setTolerance(0.02)} --- the OS may fire 20\,ms late &
+exact; egui coalesces into the next frame \\
+Clamped to & $\max(0.01\,\text{s})$ & n/a \\
+Repeat? & \texttt{repeats: false}, then re-armed in \texttt{refresh()} & re-armed every frame \\
+\bottomrule
+\end{tabular}
+\caption{Both shells converge on the same rule: schedule exactly one wake-up, at the
+next visible change. Neither one ever busy-waits.}
+\end{table}
+
+\begin{lstlisting}[caption={\file{app.rs} lines 172--176: the whole scheduling policy is
+three lines.}]
+#[cfg(feature = "egui-ui")]
+pub fn schedule_repaint(&self, ctx: &egui::Context) {
+    if self.timer.state() == RunState::Running {
+        ctx.request_repaint_after(self.timer.next_display_change());
+    }
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\tiny\sffamily,text width=24mm,minimum height=9mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) at (0,0) {\textbf{running}\\{\tiny state == \texttt{Running}}};
+  \node[g] (b) at (0,-1.7) {\tiny arm a wake-up at\\\texttt{next\_display\_change()}};
+  \node[k] (c) at (0,-3.4) {\tiny wake up, update\\\texttt{last\_second}, re-arm};
+  \node[b] (d) at (0,-5.1) {\textbf{idle / paused}\\{\tiny nothing is armed}};
+  \draw[es] (a)--(b); \draw[es] (b)--(c);
+  \draw[ethin, softink] (c.east) -- ++(9mm,0) |- (a.east) node[pos=0.25,right,font=\tiny,text=softink] {\scriptsize repeats};
+  \draw[ethin, softink!40, dashed] (d.east) -- ++(12mm,0) node[right,font=\tiny,text=softink] {\scriptsize 0 events/s};
+\end{tikzpicture}
+\caption{The repaint loop, which is really just a one-node cycle.}
+\label{fig:repaint}
+\end{figure}

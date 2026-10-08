@@ -1,0 +1,179 @@
+\section{The one idea that explains everything}
+
+Tomito-RS is a Pomodoro timer. That part is easy. The interesting part is that it has
+\emph{two entirely different user interfaces} --- a hand-built AppKit one and an egui
+one --- and the timer logic is shared byte-for-byte between them.
+
+That only works because of a strict layering rule, which is stated in the first line of
+\file{src/mac\_shell.rs}:
+
+\begin{lstlisting}[caption={The module's own doc comment states the contract.}]
+//! Renderer-free macOS UI. Rust owns timer/storage; AppKit owns controls and drawing.
+\end{lstlisting}
+
+\subsection{The three layers}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  column/.style={rounded corners=3pt, line width=1pt, inner sep=5pt, align=center,
+                 text width=33mm, minimum height=70mm, font=\scriptsize\sffamily},
+]
+  % ------------------------------------------------------------------ core
+  \node[column, fill=corefill, draw=pastel!90!black] (core) at (0,0) {%
+    \hd{\color{pastel!45!black}THE CORE}\\[2mm]
+    \texttt{app.rs}\\[1.2mm] \texttt{timer.rs}\\[1.2mm]
+    \texttt{config.rs}\\[1.2mm] \texttt{stats.rs}\\[3mm]
+    Knows: what time it is, what activity comes\\next, which settings are valid,
+    today's\\totals.\\[2.5mm]
+    {\itshape No windows. No graphics.\\No AppKit. No egui.}};
+
+  % ------------------------------------------------------------------ shell
+  \node[column, fill=shellfill, draw=mint!80!black, right=27mm of core] (shell) {%
+    \hd{\color{mint!60!black}THE SHELL}\\[2mm]
+    \texttt{mac\_shell.rs}\\[1.2mm] \texttt{egui\_shell.rs}\\[1.2mm]
+    \texttt{native.rs}\\[1.2mm] \texttt{hotkeys.rs}\\[1.2mm] \texttt{theme.rs}\\[3mm]
+    Knows: window creation, event\\sources, repaint scheduling, rendering,
+    menu\\bar, sound playback.\\[2.5mm]
+    {\itshape Replaceable.}};
+
+  % ------------------------------------------------------------------ os
+  \node[column, fill=soft, draw=softink!55, dashed, right=27mm of shell] (os) {%
+    \hd{\color{softink}THE PLATFORM}\\[2mm]
+    \textbf{AppKit}\\[1.2mm]
+    NSWindow, NSButton, NSSound,\\NSStatusBar, NSTimer\\[2.5mm]
+    \hd{\color{softink}egui}\\[1.2mm]
+    glow, winit, x11\\[2.5mm]
+    {\itshape Differs per build.}};
+
+  % ------------------------------------------------- core -> shell (intent)
+  \draw[er, line width=1.5pt]
+    (core.east) -- node[vlabel, midway, above=1.5mm, align=center, text=accent!60!black]
+      {\textbf{intent flags}\\\texttt{hide\_requested}\\\texttt{notify\_requested}}
+    ($(shell.west)+(0,9mm)$);
+
+  % ------------------------------------------------- shell -> core (events)
+  \draw[es, line width=1.5pt]
+    ($(shell.west)+(0,-9mm)$) -- node[vlabel, midway, below=1.5mm, align=center, text=mint!60!black]
+      {\textbf{callbacks}\\\texttt{tick()} \texttt{space}\\\texttt{willSleep}}
+    (core.east);
+
+  % ------------------------------------------------- shell -> platform
+  \draw[e, line width=1.5pt]
+    (shell.east) -- node[vlabel, midway, above=1.5mm, align=center]
+      {\textbf{effect calls}\\\texttt{NSWindow}, \texttt{NSSound},\\\texttt{orderOut}, \texttt{save}}
+    ($(os.west)+(0,9mm)$);
+  \draw[e, line width=1.5pt]
+    ($(os.west)+(0,-9mm)$) -- node[vlabel, midway, below=1.5mm, align=center]
+      {\textbf{effect calls}\\\texttt{egui::Context},\\\texttt{ViewportCommand}, \texttt{save}}
+    (shell.east);
+
+  % ------------------------------------------------- group brackets
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, thick, pastel!45!black]
+    ($(core.north west)+(-3mm,2.5mm)$) -- ($(core.north east)+(3mm,2.5mm)$)
+    node[midway, above=2mm, font=\tiny\sffamily\bfseries, text=pastel!45!black]
+      {shared by every build, unit-tested};
+
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, thick, mint!80!black]
+    ($(shell.north west)+(-3mm,2.5mm)$) -- ($(shell.north east)+(3mm,2.5mm)$)
+    node[midway, above=2mm, font=\tiny\sffamily\bfseries, text=mint!60!black]
+      {swapped per target OS};
+
+  \node[note, below=6mm of core.south, text width=33mm, font=\tiny\sffamily]
+    {The core could be compiled with zero\\platform dependencies; \texttt{cfg}
+     gates keep that true.};
+\end{tikzpicture}
+\caption{The layering. The core never calls a platform API; it only raises flags. The
+shell reads them, performs the effect, and clears them with \texttt{std::mem::take}.}
+\label{fig:layers}
+\end{figure}
+
+\subsection{The mechanism: five boolean fields}
+
+The whole boundary is five public booleans on \file{App}, from \file{src/app.rs} lines 22--29:
+
+\begin{lstlisting}[caption={Every side effect the core wants is a public boolean field.}]
+pub hide_requested:   bool,   // shell should order the window out
+pub show_requested:   bool,   // shell should bring the window forward
+pub notify_requested: bool,   // shell should play the completion sound
+pub tick_requested:   bool,   // shell should play the per-second tick sound
+pub exit_requested:   bool,   // shell should terminate the process
+\end{lstlisting}
+
+The core never calls \texttt{NSBeep()} or \texttt{request\_repaint}. It only ever writes
+\texttt{true}. The shell then calls \texttt{std::mem::take(\&mut app.notify\_requested)},
+which reads the flag \emph{and} resets it to \texttt{false} in one step:
+
+\begin{lstlisting}[caption={Both shells drain the flags identically, at the end of a frame.}]
+// src/mac_shell.rs, refresh()
+if std::mem::take(&mut app.hide_requested)   { views.window.orderOut(None); }
+let show = std::mem::take(&mut app.show_requested);
+if std::mem::take(&mut app.notify_requested) { play(app.settings.notification_sound); }
+if std::mem::take(&mut app.tick_requested)   { play(Sound::Tink); }
+\end{lstlisting}
+
+Because the flag is cleared by the same read that tests it, an intent can never fire
+twice. And because the core only writes booleans, it never needs to know whether a
+shell exists at all --- the same \file{App} compiles inside both shells unmodified.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  fw/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,
+             inner sep=5pt,font=\scriptsize\sffamily,minimum height=10mm},
+  key/.style={rounded corners=2pt,draw=accent,fill=accent!14,align=center,
+              inner sep=5pt,line width=1.2pt,font=\scriptsize\sffamily\bfseries,
+              text=accent!60!black,minimum height=10mm},
+]
+  \node[fw] (n1) {\textbf{core}\\ decides something\\ should happen};
+  \node[key, right=6mm of n1] (n2) {sets a flag\\\texttt{= true}};
+  \node[fw, right=6mm of n2] (n3) {\textbf{shell}\\ reaches end of\\its frame callback};
+  \node[key, right=6mm of n3] (n4) {\texttt{mem::take}\\ returns true\\and clears};
+  \node[fw, right=6mm of n4] (n5) {\textbf{shell}\\ performs the\\real effect};
+  \foreach \a/\b in {n1/n2,n2/n3,n3/n4,n4/n5} \draw[e] (\a) -- (\b);
+
+  \draw[ethin, dashed, accent!70] (n2.south) ++(0,-1mm) -- ++(0,-6mm)
+        -| node[vlabel, below, pos=0.78, text=accent!60!black]
+        {\emph{nothing else: no callback, no closure, no channel}}
+        ($(n5.south)+(0,-6mm)$);
+
+  \node[note, below=15mm of n3.5, text width=145mm] {%
+    The core can be compiled, unit-tested, and reasoned about with no UI at all.%
+    It also means a second UI does not add a single line of new logic --- it
+    only adds another consumer for the same five flags.};
+\end{tikzpicture}
+\caption{The intent-flag protocol, as a five-step cycle.}
+\label{fig:flags}
+\end{figure}
+
+\subsection{What one second of running looks like}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  fw/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,
+             inner sep=4pt,font=\scriptsize\sffamily,minimum height=11mm,text width=15mm},
+  key/.style={fw, draw=accent, fill=accent!14, line width=1.2pt,
+              text=accent!60!black, font=\scriptsize\sffamily\bfseries},
+]
+  \node[fw] (n1) {event fires\\\texttt{NSTimer}\\\scriptsize or \texttt{logic()}};
+  \node[key, right=4mm of n1] (n2) {\texttt{app.tick()}\\\scriptsize reads the clock\\decides if the second\\changed};
+  \node[fw, right=4mm of n2] (n3) {update labels\\\scriptsize \texttt{refresh()}\\\scriptsize or \texttt{effects()}};
+  \node[fw, right=4mm of n3] (n4) {consume flags\\\scriptsize \texttt{mem::take}};
+  \node[fw, right=4mm of n4] (n5) {save settings\\\scriptsize if dirty};
+  \node[fw, right=4mm of n5] (n6) {schedule the\\\scriptsize next wakeup};
+  \foreach \a/\b in {n1/n2,n2/n3,n3/n4,n4/n5,n5/n6} \draw[e] (\a) -- (\b);
+
+  \draw[ethin, dashed, accent!70] (n2.north) ++(0,1mm) -- ++(0,7mm)
+        -| node[vlabel, above, pos=0.80, text=accent!60!black]
+        {\emph{only when the displayed second actually changed}}
+        ($(n6.north)+(0,7mm)$);
+
+  \node[note, below=8mm of n3.5, text width=150mm] {%
+    No thread, no async runtime, no polling loop. When the timer is \emph{Idle},
+    step six schedules nothing at all, so the process does literally zero work per second.};
+\end{tikzpicture}
+\caption{The per-second cycle in the AppKit shell. \texttt{refresh()} ends by arming
+exactly one one-shot \texttt{NSTimer} for the instant the next displayed digit changes.}
+\label{fig:second}
+\end{figure}

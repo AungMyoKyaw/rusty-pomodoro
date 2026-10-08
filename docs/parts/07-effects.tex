@@ -1,0 +1,125 @@
+\clearpage
+\section{The intent-flag pattern, in full}
+
+This is the pattern that makes the whole project work, so it is worth seeing every
+place it is used. There are exactly five flags, and each one has a producer in the core
+and a consumer in the shell.
+
+\subsection{The five flags, their producers, their consumers}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  fl/.style={rounded corners=2pt,draw=accent!65,fill=intentfill,align=center,inner sep=4pt,
+             font=\scriptsize\sffamily,text width=30mm,minimum height=10mm,
+             text=accent!55!black},
+  pr/.style={rounded corners=2pt,draw=pastel!45!black,fill=corefill,align=center,inner sep=4pt,
+             font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  co/.style={rounded corners=2pt,draw=mint!70!black,fill=shellfill,align=center,inner sep=4pt,
+             font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+]
+  \node[fl] (f1) at (0,0) {\texttt{hide\_requested}};
+  \node[fl] (f2) at (0,-1.5) {\texttt{show\_requested}};
+  \node[fl] (f3) at (0,-3.0) {\texttt{notify\_requested}};
+  \node[fl] (f4) at (0,-4.5) {\texttt{tick\_requested}};
+  \node[fl] (f5) at (0,-6.0) {\texttt{exit\_requested}};
+
+  \node[pr] (p1) at (-5.6,0) {\texttt{toggle()} when \texttt{hide\_on\_start}};
+  \node[pr] (p2) at (-5.6,-1.5) {\texttt{tick()} when \texttt{show\_on\_finish}};
+  \node[pr] (p3) at (-5.6,-3.0) {\texttt{tick()} when the second hits zero};
+  \node[pr] (p4) at (-5.6,-4.5) {\texttt{tick()} when the displayed second changes};
+  \node[pr] (p5) at (-5.6,-6.0) {\texttt{act()} on the Quit menu item};
+
+  \node[co] (c1) at (5.6,0) {\texttt{window.orderOut(None)}\\\scriptsize or \texttt{Visible(false)}};
+  \node[co] (c2) at (5.6,-1.5) {\texttt{makeKeyAndOrderFront}\\\scriptsize or \texttt{Focus}};
+  \node[co] (c3) at (5.6,-3.0) {\texttt{play(notification\_sound)}};
+  \node[co] (c4) at (5.6,-4.5) {\texttt{play(Sound::Tink)}};
+  \node[co] (c5) at (5.6,-6.0) {\texttt{NSApp::terminate}\\\scriptsize or \texttt{Close}};
+
+  \foreach \i in {1,2,3,4,5} {
+    \draw[er] (p\i.east) -- (f\i.west);
+    \draw[es] (f\i.east) -- (c\i.west);
+  }
+\end{tikzpicture}
+\caption{Every flag is a one-way trip: the core sets it, the shell reads-and-clears it.
+There is no callback, no closure, no channel, and no shared mutable state beyond the
+flag itself.}
+\label{fig:flags}
+\end{figure}
+
+\subsection{Why \texttt{mem::take} and not \texttt{if}}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=46mm,minimum height=11mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{the naive version}\\[1mm]{\scriptsize test, then write, then branch}};
+  \node[k] (b) {\textbf{\texttt{mem::take}}\\[1mm]{\scriptsize one read, one write, one branch}};
+  \node[g] (c) {the flag can never be observed in the\\``set but not yet handled'' state};
+  \draw[e] (a)--(b); \draw[e] (b)--(c);
+\end{tikzpicture}
+\caption{\texttt{std::mem::take} replaces the value with \texttt{Default::default()} and
+returns the old one, so the test and the reset are a single operation.}
+\label{fig:memtake}
+\end{figure}
+
+\begin{lstlisting}[caption={The two versions side by side. The second is what both shells use.}]
+// naive: two steps, and a window in between
+if app.notify_requested {
+    play(sound);
+    app.notify_requested = false;
+}
+
+// mem::take: one step, no window
+if std::mem::take(&mut app.notify_requested) {
+    play(sound);
+}
+\end{lstlisting}
+
+\subsection{The one flag that is not a flag}
+
+\texttt{exit\_requested} is set by the shell itself (the Quit menu item calls
+\texttt{NSApplication::terminate} directly in the AppKit shell), so it is the only one
+whose producer is not the core. Everything else follows the rule.
+
+\subsection{Sleep and wake}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=42mm,minimum height=11mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{macOS will sleep}};
+  \node[k] (b) {\texttt{app.sleep()}\\\scriptsize \texttt{pause\_on\_start} \emph{and} Running};
+  \node[b] (c) {\texttt{timer.pause()}\\\texttt{paused\_for\_sleep = true}};
+  \node[b] (d) {\textbf{macOS wakes}};
+  \node[g] (e) {\texttt{app.wake()}\\\scriptsize resume only if \texttt{paused\_for\_sleep}\\\emph{and} \texttt{resume\_on\_wake}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c);
+  \draw[e] (d)--(e);
+  \draw[ethin, softink!40, dashed] (c) -- node[vlabel, right, font=\tiny, text=softink]
+    {\scriptsize the timer keeps its elapsed time; it is only paused} (e);
+\end{tikzpicture}
+\caption{Sleep handling is a two-step handshake. The \texttt{paused\_for\_sleep} field is
+what stops a wake from resuming a timer the user had paused themselves.}
+\label{fig:sleep}
+\end{figure}
+
+\begin{lstlisting}[caption={\file{app.rs} lines 177--188. The asymmetry is the point.}]
+pub fn sleep(&mut self) {
+    if self.settings.pause_on_sleep && self.timer.state() == RunState::Running {
+        self.timer.pause();
+        self.paused_for_sleep = true;
+    }
+}
+pub fn wake(&mut self) {
+    if self.paused_for_sleep && self.settings.resume_on_wake { self.timer.start(); }
+    self.paused_for_sleep = false;
+}
+\end{lstlisting}
