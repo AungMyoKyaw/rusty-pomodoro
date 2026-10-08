@@ -1,5 +1,7 @@
 /target/
 /dist/
+/architecture.aux
+/architecture.log
 
 # Website browser captures and local preview artifacts
 /.playwright-cli/
