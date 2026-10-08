@@ -84,7 +84,9 @@ nav a:hover{color:var(--red)}
 .download-heading img{margin:0 auto 22px}
 .download-heading p{color:var(--muted);margin-top:25px}
 .install-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;margin-top:64px}
-.install{border-top:1px solid var(--line);padding-top:25px}
+.install{min-width:0;border-top:1px solid var(--line);padding-top:25px}
+.install-homebrew{grid-column:1/-1}
+.install-homebrew>p{min-height:0}
 .install h3 span{display:block;font-size:12px;color:var(--muted);margin-top:8px;letter-spacing:0}
 .install>p{font-size:15px;color:var(--muted);margin-top:20px;min-height:72px}
 pre{margin:23px 0;background:#eae8df;border-radius:5px;padding:20px;font-size:13px;line-height:1.7;overflow:auto;white-space:pre;tab-size:2}

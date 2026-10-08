@@ -36,6 +36,8 @@ async (page) => {
   assert(await page.locator("details").first().getAttribute("open") !== null, "FAQ expands");
   await page.getByRole("link", { name: "Get Rusty Pomodoro", exact: true }).click();
   assert(page.url().endsWith("#get-app"), "Install anchor navigation");
+  assert(await page.locator("#homebrew-install pre").innerText() === "brew tap AungMyoKyaw/homebrew-tap\nbrew install --cask rusty-pomodoro", "Homebrew commands");
+  assert(await page.locator(".hero-note").innerText().then(x => x.includes("100% Rust desktop app. No Tauri. No WebView.")), "Desktop Rust selling point");
   await page.emulateMedia({ reducedMotion: "reduce" });
   assert(await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior) === "auto", "Reduced motion");
   await page.goto(base);
@@ -46,8 +48,10 @@ async (page) => {
   await plain.goto(base);
   assert(await plain.getByRole("link", { name: "Get Rusty Pomodoro", exact: true }).isVisible(), "No-JS primary action");
   assert(await plain.getByRole("link", { name: "macOS build instructions", exact: true }).count() === 1, "No-JS install");
+  assert(await plain.locator("#homebrew-install pre").innerText() === "brew tap AungMyoKyaw/homebrew-tap\nbrew install --cask rusty-pomodoro", "No-JS Homebrew commands");
+  assert(await plain.locator(".hero-note").innerText().then(x => x.includes("No Tauri. No WebView.")), "No-JS desktop Rust selling point");
   assert(await plain.locator(".demo-controls").isHidden(), "No-JS inactive controls hidden");
   await noJs.close();
   assert(errors.length === 0, "Browser errors: " + errors.join(", "));
-  return { result: "PASS", widths: [1440, 1280, 800, 390, 320], checks: ["screenshots", "start", "pause", "reset", "phases", "FAQ", "navigation", "reduced motion", "keyboard", "no JavaScript"], errors };
+  return { result: "PASS", widths: [1440, 1280, 800, 390, 320], checks: ["screenshots", "start", "pause", "reset", "phases", "FAQ", "navigation", "Homebrew installation", "Rust selling point", "reduced motion", "keyboard", "no JavaScript"], errors };
 }

@@ -38,6 +38,31 @@ test("ships semantic content, truthful support and progressive enhancement", () 
     expect(match[1]).toMatch(/\bheight="/);
   }
 });
+test("macOS installation leads with the verified Homebrew cask and preserves source builds", () => {
+  const install = html.match(/<article[^>]*id="homebrew-install"[\s\S]*?<\/article>/)?.[0];
+  expect(install).toBeDefined();
+  expect(install).toContain("brew tap AungMyoKyaw/homebrew-tap\nbrew install --cask rusty-pomodoro");
+  expect(install).toContain("Homebrew · Shared Slint UI");
+  expect(install).toContain("Apple Silicon or Intel");
+  expect(install).toContain("No Rust toolchain or source build is needed.");
+  expect(install).toContain("brew upgrade --cask rusty-pomodoro");
+  expect(install).toContain("not Developer ID signed or notarized");
+  expect(html.indexOf('id="homebrew-install"')).toBeLessThan(html.indexOf("make package-macos"));
+  expect(html).toContain("macOS build instructions");
+  expect(html).not.toContain("GitHub Releases</a> for availability");
+});
+
+test("desktop Rust selling point is visible and distinguishes the website demo", () => {
+  expect(html).toContain("100% Rust desktop app. No Tauri. No WebView.");
+  expect(html).toContain("Built in Rust. Not a browser wrapper.");
+  expect(html).toContain("software-rendered Slint interface");
+  expect(html).toContain("no HTML or JavaScript app runtime");
+  expect(html).toContain("This browser demo doesn't save sessions or run the desktop app.");
+  const manifest = readFileSync(resolve(root, "../Cargo.toml"), "utf8");
+  expect(manifest).not.toMatch(/\b(?:tauri|wry|webview)\b/i);
+  expect(manifest).toContain('renderer-software');
+});
+
 test("body copy and actions have accessible palette contrast", () => {
   function luminance(hex) {
     const channels = hex.match(/[0-9a-f]{2}/g).map((value) => parseInt(value, 16) / 255);
