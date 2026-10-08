@@ -1,0 +1,154 @@
+\clearpage
+\section{The egui shell}
+
+\file{egui\_shell.rs} is 170 lines and contains no timer logic. It is a translation
+layer: it turns egui events into \texttt{App} method calls, and it turns \texttt{App}'s
+intent flags into egui commands.
+
+\subsection{The two callbacks}
+
+egui's \texttt{App} trait has two methods, and the split between them is the whole
+design.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=44mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[k] (l) {\textbf{logic()}\\\scriptsize called when egui needs input};
+  \node[b] (l1) {drain the \texttt{Command} queue};
+  \node[b] (l2) {handle the window-close request};
+  \node[b] (l3) {\texttt{app.tick()}};
+  \node[b] (l4) {\texttt{effects(ctx)}};
+  \node[g] (u) {\textbf{ui()}\\\scriptsize called to produce the frame};
+  \node[b] (u1) {\texttt{app.handle\_keys(ctx)}};
+  \node[b] (u2) {\texttt{ui::main::draw}};
+  \node[b] (u3) {\texttt{ui::settings::draw}};
+  \node[b] (u4) {\texttt{ui::statistics::draw}};
+  \node[b] (u5) {\texttt{effects(ctx)} again};
+  \draw[e] (l)--(l1); \draw[e] (l1)--(l2); \draw[e] (l2)--(l3); \draw[e] (l3)--(l4);
+  \draw[e] (u)--(u1); \draw[e] (u1)--(u2); \draw[e] (u2)--(u3); \draw[e] (u3)--(u4); \draw[e] (u4)--(u5);
+\end{tikzpicture}
+\caption{\texttt{logic()} mutates, \texttt{ui()} draws. \texttt{effects()} runs in both,
+so a flag raised while drawing is still handled in the same frame.}
+\label{fig:logicui}
+\end{figure}
+
+\subsection{\texttt{effects()}: the egui equivalent of \texttt{refresh()}}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  s/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=32mm,minimum height=9mm},
+  k/.style={s,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={s,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[s] (e1) {\textbf{(1)} apply the theme\\\scriptsize if \texttt{applied\_theme} changed};
+  \node[s] (e2) {\textbf{(2)} apply \texttt{keep\_in\_front}\\\scriptsize \texttt{WindowLevel}};
+  \node[s] (e3) {\textbf{(3)} consume \texttt{hide\_requested}\\\scriptsize \texttt{Visible(false)}};
+  \node[s] (e4) {\textbf{(4)} consume \texttt{show\_requested}\\\scriptsize \texttt{Focus}};
+  \node[s] (e5) {\textbf{(5)} consume \texttt{notify\_requested}\\\scriptsize \texttt{native::play}};
+  \node[s] (e6) {\textbf{(6)} consume \texttt{tick\_requested}\\\scriptsize \texttt{play(Tink)}};
+  \node[s] (e7) {\textbf{(7)} update the menu bar\\\scriptsize \texttt{native.update}};
+  \node[g] (e8) {\textbf{(8)} schedule the repaint\\\scriptsize \texttt{schedule\_repaint}};
+  \node[s] (e9) {\textbf{(9)} save settings\\\scriptsize after a 2\,s debounce};
+  \node[s] (e10) {\textbf{(10)} \texttt{Close}\\\scriptsize if \texttt{exit\_requested}};
+  \foreach \i/\j in {e1/e2,e2/e3,e3/e4,e4/e5,e5/e6,e6/e7,e7/e8,e8/e9,e9/e10}
+    \draw[e] (\i) -- (\j);
+\end{tikzpicture}
+\caption{Ten steps, in order. Steps 1--2 are idempotent state syncs, 3--6 are the intent
+flags, and 7--10 are the shell's own bookkeeping.}
+\label{fig:effects}
+\end{figure}
+
+\subsection{The \texttt{Command} queue}
+
+\file{native.rs} turns AppKit events into an enum and queues them. The shell drains the
+queue once per frame.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  c/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=3pt,
+            font=\scriptsize\sffamily,text width=26mm,minimum height=8mm},
+  q/.style={c,draw=accent!65,fill=accent!12,text=accent!55!black},
+]
+  \node[c] (m0) {\texttt{0} Toggle};
+  \node[c] (m1) {\texttt{1} Restart};
+  \node[c] (m2) {\texttt{2} Skip};
+  \node[c] (m3) {\texttt{3} Stop};
+  \node[c] (m4) {\texttt{4} Finish};
+  \node[c] (m5) {\texttt{5} Show};
+  \node[c] (m6) {\texttt{6} Settings};
+  \node[c] (m7) {\texttt{7} Statistics};
+  \node[c] (m8) {\texttt{8} ResetCounter};
+  \node[c] (m9) {\texttt{9} Quit};
+  \node[q] (s1) {\texttt{Sleep}};
+  \node[q] (s2) {\texttt{Wake}};
+  \foreach \n in {m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,s1,s2}
+    \draw[ethin, softink!35] (\n.south) -- ++(0,-3mm);
+  \node[note, below=5mm of m4, text width=110mm] {%
+    The menu bar and the power notifications are the only two producers. Both call
+    \texttt{context.request\_repaint()} after pushing, so the queue is never stale.};
+\end{tikzpicture}
+\caption{Twelve \texttt{Command} variants. The \texttt{tag} on each \texttt{NSMenuItem}
+is the discriminant, so adding a menu item is a one-line change in \file{native.rs} and
+one \texttt{match} arm in \file{egui\_shell.rs}.}
+\label{fig:command}
+\end{figure}
+
+\subsection{Closing the window hides it}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=44mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {user clicks the\\\texttt{close button}};
+  \node[k] (b) {\texttt{close\_requested()}\\\scriptsize and \texttt{exit\_requested} is false};
+  \node[g] (c) {\texttt{CancelClose}\\\scriptsize the window stays alive};
+  \node[g] (d) {\texttt{hide\_requested = true}\\\scriptsize \texttt{effects()} hides it};
+  \node[b] (e) {user picks\\\texttt{Quit}};
+  \node[k] (f) {\texttt{exit\_requested = true}\\\scriptsize \texttt{effects()} sends \texttt{Close}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d);
+  \draw[e] (e)--(f);
+\end{tikzpicture}
+\caption{The egui shell reproduces the AppKit shell's behaviour: closing hides, quitting
+terminates. The \texttt{CancelClose} command is what makes the first part work.}
+\label{fig:egui-close}
+\end{figure}
+
+\subsection{The dial}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=ink!55,line width=0.8pt,rounded corners=2pt] (0,0) rectangle (150,120);
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (2,116)
+    {\texttt{egui::CentralPanel} with an 18\,pt margin};
+
+  \draw[pastel!55, line width=3] (75,72) circle (34);
+  \draw[accent, line width=3] (75,72) arc[start angle=-90,end angle=120,radius=34];
+  \node[anchor=center,font=\tiny\sffamily,text=ink] at (75,66) {\texttt{24:59}};
+  \node[anchor=center,font=\tiny\sffamily,text=softink] at (75,52) {\texttt{Session 2 of 4}};
+
+  \foreach \i in {0,1,2,3} {
+    \fill[accent] ({60+\i*10},26) circle (2.2);
+  }
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (10,16)
+    {\texttt{Start} \quad \texttt{Restart} \quad \texttt{Skip} \quad \texttt{Stop}};
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (10,6)
+    {\texttt{25m focus / 5m short / 15m long (every 4)} \quad \texttt{[Flamingo]}};
+\end{tikzpicture}
+\caption{The main panel is drawn with \texttt{painter} calls, not widgets. The progress
+arc is a polyline of 96 points, which avoids both polygon triangulation and an image
+texture.}
+\label{fig:dial}
+\end{figure}

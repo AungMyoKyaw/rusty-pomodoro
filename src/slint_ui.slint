@@ -1,0 +1,208 @@
+import { ScrollView, Palette } from "std-widgets.slint";
+import "../assets/Hack-Regular.ttf";
+
+export struct SwitchRow { label: string, checked: bool }
+export struct DayRow { label: string, fraction: float }
+
+component ActionButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    in property <color> accent: #e84a5f;
+    callback clicked();
+    forward-focus: keyboard;
+    accessible-role: button;
+    accessible-label: root.label;
+    border-width: keyboard.has-focus ? 1px : 0px;
+    border-color: root.accent;
+    keyboard := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+    height: 34px;
+    min-width: 66px;
+    border-radius: 6px;
+    background: !enabled ? #242124 : mouse.pressed ? #635057 : mouse.has-hover ? #49343d : primary ? accent : #34272d;
+    Text {
+        text: root.label;
+        color: !root.enabled ? #84757c : root.primary ? #160e12 : #f7ecee;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    mouse := TouchArea { enabled: root.enabled; clicked => { keyboard.focus(); root.clicked(); } }
+}
+component CheckRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    in property <color> accent;
+    callback toggled();
+    height: 30px;
+    Rectangle {
+        x: 1px; y: 7px; width: 16px; height: 16px;
+        border-width: 1px; border-color: root.checked ? root.accent : #ad969f;
+        border-radius: 3px;
+        background: root.checked ? root.accent : #20181c;
+        if root.checked: Rectangle { x: 4px; y: 4px; width: 6px; height: 6px; background: #20181c; }
+    }
+    Text { x: 26px; width: parent.width - 26px; height: parent.height; text: root.label; color: #f7ecee; font-size: 11px; vertical-alignment: center; }
+    TouchArea { clicked => { root.toggled(); } }
+}
+component NumberField inherits Rectangle {
+    in property <string> label;
+    in-out property <string> value;
+    height: 34px;
+    Text { width: parent.width - 92px; height: parent.height; text: root.label; color: #f7ecee; font-size: 12px; vertical-alignment: center; }
+    Rectangle {
+        x: parent.width - 84px; width: 82px; height: 30px;
+        background: #21161c; border-color: editor.has-focus ? #e84a5f : #79616b; border-width: 1px; border-radius: 4px;
+        editor := TextInput { x: 8px; y: 5px; width: parent.width - 16px; height: 20px; text <=> root.value; color: #f7ecee; font-size: 13px; single-line: true; input-type: number; }
+    }
+}
+
+export component PortableWindow inherits Window {
+    title: "Tomito Portable";
+    preferred-width: 400px; preferred-height: 460px;
+    min-width: 380px; min-height: 440px;
+    default-font-family: "Hack";
+    background: #1b1418;
+    in-out property <int> page: 0;
+    in-out property <string> time-text: "25:00";
+    in-out property <string> activity-text: "Session";
+    in-out property <string> counter-text: "Session 1 of 4 in cycle";
+    in-out property <string> state-text: "Ready";
+    in-out property <string> action-label: "Start";
+    in-out property <bool> running: false;
+    in-out property <bool> overtime: false;
+    in-out property <float> progress: 0;
+    in-out property <color> accent: #e84a5f;
+    in-out property <string> status-text;
+    in-out property <string> summary-text;
+    in-out property <[DayRow]> days;
+    in-out property <[SwitchRow]> switches;
+    in-out property <string> session-input: "25";
+    in-out property <string> short-input: "5";
+    in-out property <string> long-input: "15";
+    in-out property <string> cycle-input: "4";
+    in-out property <int> theme-index: 0;
+    in-out property <int> sound-index: 0;
+    in-out property <string> theme-label: "Flamingo";
+    in-out property <string> sound-label: "Ping";
+    in-out property <bool> native-features: false;
+    in-out property <bool> confirm-reset: false;
+    callback action(int);
+    callback option-toggled(int);
+    callback save-settings();
+    callback next-theme();
+    callback next-sound();
+    callback select-scope(bool);
+    callback export-history();
+    callback reset-history();
+
+    FocusScope {
+        init => { Palette.color-scheme = ColorScheme.dark; self.focus(); }
+        key-pressed(event) => {
+            if (event.text == Key.Escape) { root.action(5); return accept; }
+            if (root.page != 0) { return reject; }
+            if (event.text == " ") { root.action(0); return accept; }
+            if (event.text == "r" || event.text == "R") { root.action(1); return accept; }
+            if (event.text == "s" || event.text == "S") { root.action(2); return accept; }
+            if (event.text == "x" || event.text == "X") { root.action(3); return accept; }
+            if (event.text == "f" || event.text == "F") { root.action(4); return accept; }
+            return reject;
+        }
+        VerticalLayout {
+            padding: 18px; spacing: 10px;
+            HorizontalLayout {
+                spacing: 8px; height: 32px;
+                ActionButton { label: "Timer"; primary: root.page == 0; accent: root.accent; clicked => { root.action(5); } }
+                ActionButton { label: "Settings"; primary: root.page == 1; accent: root.accent; clicked => { root.action(6); } }
+                ActionButton { label: "Statistics"; primary: root.page == 2; accent: root.accent; clicked => { root.action(7); } }
+            }
+            if root.page == 0: VerticalLayout {
+                spacing: 8px;
+                Rectangle { height: 12px; background: transparent; }
+                Text { text: root.activity-text; color: root.accent; font-size: 19px; height: 30px; horizontal-alignment: center; }
+                Text { text: root.time-text; color: #f7ecee; font-size: 58px; height: 108px; horizontal-alignment: center; vertical-alignment: center; }
+                Text { text: root.counter-text; color: #c7afb9; font-size: 11px; height: 24px; horizontal-alignment: center; }
+                Rectangle {
+                    height: 4px; background: #34272d;
+                    Rectangle { width: parent.width * root.progress; height: parent.height; background: root.accent; }
+                }
+                Text { text: root.state-text; color: #c7afb9; height: 26px; horizontal-alignment: center; font-size: 12px; }
+                HorizontalLayout {
+                    spacing: 8px; height: 38px;
+                    ActionButton { label: root.action-label; primary: true; accent: root.accent; clicked => { root.action(0); } }
+                    ActionButton { label: "Restart"; clicked => { root.action(1); } }
+                    ActionButton { label: "Skip"; clicked => { root.action(2); } }
+                }
+                HorizontalLayout {
+                    spacing: 8px; height: 34px;
+                    ActionButton { label: "Stop"; clicked => { root.action(3); } }
+                    ActionButton { label: root.overtime ? "Finish" : "Reset cycle"; clicked => { root.action(root.overtime ? 4 : 8); } }
+                    ActionButton { label: "Quit"; clicked => { root.action(9); } }
+                }
+                Rectangle { background: transparent; }
+                Text { text: "Space: start/pause   R: restart   S: skip"; color: #c7afb9; font-size: 10px; height: 18px; horizontal-alignment: center; }
+            }
+            if root.page == 1: VerticalLayout {
+                spacing: 8px;
+                ScrollView {
+                    VerticalLayout {
+                        padding: 2px; spacing: 8px;
+                        Text { text: "Durations (minutes)"; color: #f7ecee; font-size: 16px; height: 26px; }
+                        NumberField { label: "Session (1-180)"; value <=> root.session-input; }
+                        NumberField { label: "Short break (1-60)"; value <=> root.short-input; }
+                        NumberField { label: "Long break (1-120)"; value <=> root.long-input; }
+                        NumberField { label: "Cycle (2-10 sessions)"; value <=> root.cycle-input; }
+                        Text { text: "Timer and window"; color: #f7ecee; font-size: 16px; height: 30px; }
+                        for option[index] in root.switches: CheckRow {
+                            label: option.label; checked: option.checked; accent: root.accent;
+                            toggled => { root.option-toggled(index); }
+                        }
+                        Text { text: "Appearance and sound"; color: #f7ecee; font-size: 16px; height: 30px; }
+                        ActionButton { label: "Theme: " + root.theme-label; accent: root.accent; clicked => { root.next-theme(); } }
+                        ActionButton { label: "Sound: " + root.sound-label; clicked => { root.next-sound(); } }
+                        ActionButton { label: "Preview sound"; enabled: root.native-features; clicked => { root.action(15); } }
+                        Text { text: root.native-features ? "Native tray, audio and sleep hooks active." : "Tray/audio/sleep hooks available on macOS."; color: #c7afb9; font-size: 10px; height: 28px; wrap: word-wrap; }
+                    }
+                }
+                ActionButton { label: "Apply and save"; primary: true; accent: root.accent; clicked => { root.save-settings(); } }
+            }
+            if root.page == 2: VerticalLayout {
+                spacing: 10px;
+                HorizontalLayout {
+                    height: 32px; spacing: 8px;
+                    ActionButton { label: "Today"; clicked => { root.select-scope(true); } }
+                    ActionButton { label: "Last 7 days"; clicked => { root.select-scope(false); } }
+                }
+                Text { text: root.summary-text; color: #f7ecee; font-size: 12px; height: 52px; wrap: word-wrap; }
+                ScrollView {
+                    VerticalLayout {
+                        spacing: 4px; padding: 2px;
+                        for day in root.days: Rectangle {
+                            height: 20px; background: transparent;
+                            Text { text: day.label; width: 195px; height: parent.height; color: #c7afb9; font-size: 10px; vertical-alignment: center; }
+                            Rectangle {
+                                x: 205px; y: (parent.height - self.height) / 2;
+                                width: parent.width - 205px; height: 8px; background: #34272d;
+                                Rectangle { width: parent.width * day.fraction; height: parent.height; background: root.accent; }
+                            }
+                        }
+                    }
+                }
+                Rectangle { background: transparent; }
+                if root.confirm-reset: Text { text: "Delete all activity history? Cannot undo."; color: #f7ecee; font-size: 11px; height: 20px; }
+                HorizontalLayout {
+                    height: 34px; spacing: 8px;
+                    ActionButton { label: root.confirm-reset ? "Cancel" : "Export CSV"; clicked => { if root.confirm-reset { root.confirm-reset = false; } else { root.export-history(); } } }
+                    ActionButton { label: root.confirm-reset ? "Delete history" : "Reset history"; clicked => { if root.confirm-reset { root.reset-history(); } else { root.confirm-reset = true; } } }
+                }
+            }
+            Text { text: root.status-text; color: #c7afb9; font-size: 10px; height: 28px; wrap: word-wrap; }
+        }
+    }
+}

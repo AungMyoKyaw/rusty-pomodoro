@@ -1,0 +1,13 @@
+/target/
+/dist/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# LaTeX build intermediates
+/docs/architecture.aux
+/docs/architecture.log
+/docs/architecture.out
+/docs/architecture.toc
+/docs/missfont.log

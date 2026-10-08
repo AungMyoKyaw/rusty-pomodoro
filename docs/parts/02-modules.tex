@@ -1,0 +1,155 @@
+\clearpage
+\section{The module map}
+
+\subsection{The core: four modules and two files on disk}
+
+Every arrow below is a real \texttt{use crate::\ldots} in the source. Notice the
+direction of dependency: \file{timer.rs} and \file{config.rs} do not know that
+\file{App} exists. \file{App} is the only thing that knows about all of them.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1.05cm,y=1cm,
+  core/.style={rounded corners=2pt, draw=pastel!45!black, fill=corefill, align=center,
+               inner sep=4pt, line width=0.8pt, font=\scriptsize\sffamily,
+               minimum height=1.25cm, text width=2.9cm},
+  data/.style={rounded corners=2pt, draw=mandarin!70!black, fill=datafill, align=center,
+               inner sep=4pt, line width=0.8pt, font=\scriptsize\sffamily,
+               minimum height=1.25cm, text width=2.9cm, draw=mandarin!80!black},
+  e/.style={-stealth, draw=ink!45, line width=0.7pt},
+  ed/.style={-stealth, draw=mandarin!80!black, line width=0.7pt},
+]
+  \node[core] (timer)  at (0,3.1) {\texttt{timer.rs}\\[-0.6mm]{\tiny 479 lines}\\\textit{Timer, Activity, RunState}};
+  \node[core] (config) at (0,0.9) {\texttt{config.rs}\\[-0.6mm]{\tiny 299 lines}\\\textit{Settings, Theme, Sound}};
+  \node[core] (stats)  at (0,-1.3) {\texttt{stats.rs}\\[-0.6mm]{\tiny 395 lines}\\\textit{StatsStore, Totals}};
+  \node[core, fill=corefill!60!white, line width=1.2pt] (app)
+        at (4.3,0.9) {\textbf{app.rs}\\[-0.6mm]{\tiny 332 lines}\\\textit{App, Panel}\\[-0.6mm]{\tiny \texttt{durations\_from()}}};
+
+  \node[data] (conf) at (8.6,2.0) {\texttt{settings.conf}\\[-0.6mm]{\tiny one \texttt{key=value} per line, clamped on read}};
+  \node[data] (csv)  at (8.6,-1.3) {\texttt{activities.csv}\\[-0.6mm]{\tiny append-only, one entry per activity}};
+
+  \draw[e] (app) -- node[vlabel, above, font=\tiny] {\texttt{Timer}, \texttt{Durations}} (timer);
+  \draw[e] (app) -- node[vlabel, above, font=\tiny] {\texttt{Settings}, \texttt{Sound}} (config);
+  \draw[e] (app) -- node[vlabel, below, font=\tiny] {\texttt{StatsStore}} (stats);
+  \draw[e] (timer.east) to[bend left=22] node[vlabel, above, font=\tiny, sloped] {\texttt{Activity}} (stats.east);
+  \draw[ed] (config.east) to[bend left=12] node[vlabel, above, font=\tiny, sloped, text=mandarin!70!black] {\texttt{load}, \texttt{save}, \texttt{parse}} (conf.west);
+  \draw[ed] (stats.east) -- node[vlabel, above, font=\tiny, text=mandarin!70!black] {\texttt{record}, \texttt{scan}} (csv.west);
+
+  \node[note, below=2.4cm of stats, text width=6.0cm] {%
+    \texttt{app.rs} is the only module that knows about all the others.};
+\end{tikzpicture}
+\caption{The platform-free core. \file{timer.rs} imports only \texttt{std::time}
+and, on macOS, two Mach functions declared by hand. \file{config.rs} and
+\file{stats.rs} touch only \texttt{std::fs} and \texttt{libc}.}
+\label{fig:core-map}
+\end{figure}
+
+\subsection{The shells: two of them, plus their helpers}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1.05cm,y=1cm,
+  shell/.style={rounded corners=2pt, draw=mint!60!black, fill=shellfill, align=center,
+               inner sep=4pt, line width=0.8pt, font=\scriptsize\sffamily,
+               minimum height=1.2cm, text width=2.8cm},
+  nat/.style={rounded corners=2pt, draw=accent!65, fill=intentfill, align=center,
+              inner sep=4pt, line width=0.8pt, font=\scriptsize\sffamily,
+              minimum height=1.2cm, text width=2.8cm, text=accent!55!black},
+  es/.style={-stealth, draw=mint!65!black, line width=0.7pt},
+  e/.style={-stealth, draw=ink!45, line width=0.7pt},
+]
+  % targets
+  \node[nat, minimum height=1.6cm, line width=1.3pt] (app)
+        at (0,0) {\textbf{app.rs}\\[-0.6mm]{\tiny 332 lines}\\[-0.6mm]the shared core};
+
+  % the two shells
+  \node[shell, line width=1.3pt] (mac)  at (4.4,2.2)
+        {\textbf{mac\_shell.rs}\\[-0.6mm]{\tiny 848 lines}\\[-0.6mm]AppKit, no renderer};
+  \node[shell, line width=1.3pt] (egui) at (4.4,-2.2)
+        {\textbf{egui\_shell.rs}\\[-0.6mm]{\tiny 170 lines}\\[-0.6mm]egui immediate mode};
+
+  % helpers
+  \node[shell] (hotkeys) at (9.0,3.4) {\texttt{hotkeys.rs}\\[-0.6mm]{\tiny Carbon \texttt{RegisterEventHotKey}}};
+  \node[shell] (ui)     at (9.0,0.9) {\texttt{ui/*.rs}\\[-0.6mm]{\tiny main, settings, statistics}};
+  \node[shell] (theme)  at (9.0,-1.5) {\texttt{theme.rs}\\[-0.6mm]{\tiny \texttt{Palette}, \texttt{apply()}}};
+  \node[shell] (native) at (9.0,-3.7) {\texttt{native.rs}\\[-0.6mm]{\tiny \texttt{Command}, \texttt{NSStatusItem}}};
+
+  \draw[es] (mac)  to[bend left=12] node[vlabel, above, font=\tiny, sloped, text=mint!60!black] {\texttt{tick()}, \texttt{refresh()}} (app);
+  \draw[es] (egui) to[bend left=12] node[vlabel, below, font=\tiny, sloped, text=mint!60!black] {\texttt{tick()}, \texttt{effects()}} (app);
+  \draw[es] (hotkeys) -- (mac);
+  \draw[es] (ui)     -- (egui);
+  \draw[es] (theme)  -- (egui);
+  \draw[es] (native) to[bend left=12] node[vlabel, below, font=\tiny, sloped, text=mint!60!black] {\texttt{Command}} (egui);
+  \draw[e]  (native.south) -- ++(0,-4mm) -| node[vlabel, below, font=\tiny, pos=0.75]
+        {reads App for the menu-bar title} ($(app.south)+(0,-3mm)$);
+
+  \node[note, below=2.0cm of egui, text width=4.4cm] {%
+    Both shells are \emph{consumers}. Neither writes to \texttt{Timer} except
+    through the public \texttt{App} methods.};
+\end{tikzpicture}
+\caption{Shell cluster. \file{native.rs} is a thin AppKit bridge that turns menu
+clicks and power notifications into an enum value, then queues it for the next frame.}
+\label{fig:shell-map}
+\end{figure}
+
+\subsection{Line counts}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=0.000000000000000000000001mm,y=4.4mm]
+  % frame + gridlines
+  \draw[draw=softink!35, line width=0.5pt, rounded corners=2pt] (0,0) rectangle (-5320,-13);
+  \foreach \v in {200,400,600,800,1000}
+    \draw[softink!18, line width=0.4pt] (\v,-12.4) -- (\v,-0.6);
+  \foreach \lab/\v in {200/200,400/400,600/600,800/800,1000/1000}
+    \node[anchor=south, font=\tiny\sffamily, text=softink!80] at (\v,0.15) {\lab};
+
+  % bars, tallest first: y position = index, width = lines
+  \newcommand{\drawbar}[3]{\fill[#2] (0,{#1-0.5}) rectangle (#3,{#1+0.5});}
+  \newcommand{\rowlab}[2]{\node[anchor=east, font=\tiny\sffamily, text=ink] at (-20,#1) {#2};}
+  \newcommand{\rowval}[2]{\node[anchor=west, font=\tiny\sffamily, text=softink] at (-4320,#1) {#2};}
+
+  \rowlab{-1}{mac\_shell.rs}   \drawbar{-1}{mint!55!black}{848}      \rowval{-1}{848}
+  \rowlab{-2}{timer.rs}        \drawbar{-2}{pastel!55!black}{479}    \rowval{-2}{479}
+  \rowlab{-3}{stats.rs}        \drawbar{-3}{pastel!55!black}{395}    \rowval{-3}{395}
+  \rowlab{-4}{app.rs}          \drawbar{-4}{pastel!55!black}{332}    \rowval{-4}{332}
+  \rowlab{-5}{config.rs}       \drawbar{-5}{pastel!55!black}{299}    \rowval{-5}{299}
+  \rowlab{-6}{native.rs}       \drawbar{-6}{mint!55!black}{219}      \rowval{-6}{219}
+  \rowlab{-7}{egui\_shell.rs}  \drawbar{-7}{mint!55!black}{170}      \rowval{-7}{170}
+  \rowlab{-8}{ui/*.rs}         \drawbar{-8}{mandarin!70!black}{146}  \rowval{-8}{146}
+  \rowlab{-9}{hotkeys.rs}      \drawbar{-9}{mint!55!black}{128}      \rowval{-9}{128}
+  \rowlab{-10}{theme.rs}       \drawbar{-10}{mint!55!black}{118}     \rowval{-10}{118}
+  \rowlab{-11}{main.rs}        \drawbar{-11}{softink!45}{27}         \rowval{-11}{27}
+
+  % bracket marking the core
+  \draw[decorate, decoration={brace, amplitude=3pt}, thick, pastel!45!black]
+    (-12,-5.6) -- (-12,-1.4) node[midway, left=2mm, font=\tiny\sffamily\bfseries, text=pastel!45!black]
+    {the entire platform-free core: 1\,505 lines};
+\end{tikzpicture}
+\caption{Source size by file. The five pastel bars are the core; they compile and test
+without a window, an image, or a sound card.}
+\label{fig:loc}
+\end{figure}
+
+\subsection{Two shells, side by side}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{32mm} p{54mm} p{56mm}@{}}
+\toprule
+& \textbf{mac\_shell.rs} (default on macOS) & \textbf{egui\_shell.rs} (\texttt{--features egui-ui}) \\
+\midrule
+Rendering & none --- the OS draws the controls & egui immediate mode, \texttt{glow} backend \\
+Event source & one one-shot \texttt{NSTimer} & egui repaint requests \\
+Frame callback & \texttt{refresh()} & \texttt{effects()}, called from \texttt{logic()} and \texttt{ui()} \\
+Menu bar & real \texttt{NSStatusBar} item & \texttt{native.rs} \texttt{NSStatusItem} \\
+Global keys & Carbon \texttt{RegisterEventHotKey} & none (app-focused keys only) \\
+Sound & \texttt{NSSound::soundNamed} & \texttt{native::play} on macOS, silent elsewhere \\
+Window & fixed 380$\times$300, no resize & 360$\times$440 minimum, 400$\times$460 default \\
+Themes & one coloured label per theme & five full \texttt{Palette}s via \file{theme.rs} \\
+Panels & real \texttt{NSWindow}s, built lazily & \texttt{egui::Window}s \\
+\bottomrule
+\end{tabular}
+\caption{Both shells drive the identical \file{App}. The differences are entirely about
+how pixels and events arrive, never about what the timer does.}
+\end{table}

@@ -1,0 +1,128 @@
+\clearpage
+\section{Input: three paths to the same methods}
+
+There are exactly three ways to reach the timer: keyboard, menu bar, and buttons. All
+three end at the same \texttt{App} methods.
+
+\subsection{Keyboard}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  k/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=30mm,minimum height=9mm},
+  g/.style={k,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+  a/.style={k,draw=accent!65,fill=accent!12,text=accent!55!black},
+]
+  \node[k] (sp) {\texttt{Space}};
+  \node[k] (r) {\texttt{R}};
+  \node[k] (s) {\texttt{S}};
+  \node[k] (x) {\texttt{X}};
+  \node[a] (f) {\texttt{F}};
+  \node[k] (esc) {\texttt{Escape}};
+
+  \node[g] (t1) at (5.6,1.6) {\texttt{toggle()}};
+  \node[g] (t2) at (5.6,0.4) {\texttt{restart()}};
+  \node[g] (t3) at (5.6,-0.8) {\texttt{skip()}};
+  \node[g] (t4) at (5.6,-2.0) {\texttt{stop()}};
+  \node[g] (t5) at (5.6,-3.2) {\texttt{complete\_current()}\\\scriptsize only if \texttt{is\_overtime()}};
+  \node[g] (t6) at (5.6,-4.4) {\texttt{panel = None}\\\scriptsize closes any open panel};
+
+  \draw[e] (sp)--(t1); \draw[e] (r)--(t2); \draw[e] (s)--(t3);
+  \draw[e] (x)--(t4); \draw[e] (f)--(t5); \draw[e] (esc)--(t6);
+\end{tikzpicture}
+\caption{Six keys. \texttt{Escape} is handled first and closes the panel; the other five
+are ignored while a panel is open or while egui wants the keyboard.}
+\label{fig:keys}
+\end{figure}
+
+\begin{lstlisting}[caption={\file{app.rs} lines 190--216. The guard at the top is what
+keeps the timer from reacting while the user is typing in a settings field.}]
+pub fn handle_keys(&mut self, ctx: &egui::Context) {
+    let escape = ctx.input(|i| i.key_pressed(egui::Key::Escape));
+    if escape { self.panel = Panel::None; self.confirm_reset = false; }
+    if ctx.egui_wants_keyboard_input() || self.panel != Panel::None { return; }
+    ctx.input(|i| {
+        if i.key_pressed(egui::Key::Space) { self.toggle(); }
+        if i.key_pressed(egui::Key::R)     { self.restart(); }
+        if i.key_pressed(egui::Key::S)     { self.skip(); }
+        if i.key_pressed(egui::Key::X)     { self.stop(); }
+        if i.key_pressed(egui::Key::F) && self.is_overtime() { self.complete_current(); }
+    });
+}
+\end{lstlisting}
+
+\subsection{Global hotkeys, without a keyboard tap}
+
+The AppKit shell registers five Carbon hotkeys. They work even when the app is not
+focused, and they need no permission prompt because they are registered on the
+application's own event target.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{RegisterEventHotKey}\\\scriptsize Control + Option};
+  \node[b] (b) {\textbf{key codes}\\\texttt{49} Space\quad \texttt{15} R\quad \texttt{1} S\\\texttt{7} X\quad \texttt{17} T};
+  \node[b] (c) {\textbf{InstallEventHandler}\\\scriptsize on \texttt{GetApplicationEventTarget()}};
+  \node[k] (d) {\textbf{callback}\\\texttt{key\_id(event)}\\\scriptsize checks the \texttt{TMRs} signature};
+  \node[g] (e) {\textbf{dispatch}\\\texttt{0} toggle\quad \texttt{1} restart\\\texttt{2} skip\quad \texttt{3} stop\\\texttt{4} show};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e);
+\end{tikzpicture}
+\caption{\file{hotkeys.rs} is 128 lines of raw Carbon FFI. The \texttt{TMRs} signature
+is a magic value that stops the handler from reacting to some other app's hotkey.}
+\label{fig:hotkeys}
+\end{figure}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{22mm} p{26mm} p{30mm} p{60mm}@{}}
+\toprule
+\textbf{Key code} & \textbf{Key} & \textbf{Modifiers} & \textbf{Action} \\
+\midrule
+49 & Space & Control + Option & \texttt{toggle()} \\
+15 & R & Control + Option & \texttt{restart()} \\
+1 & S & Control + Option & \texttt{skip()} \\
+7 & X & Control + Option & \texttt{stop()} \\
+17 & T & Control + Option & \texttt{show()} \\
+\bottomrule
+\end{tabular}
+\caption{The five registered hotkeys. The \texttt{T} key is the ``show timer'' command;
+it is the only one that does not mutate the timer.}
+\end{table}
+
+\subsection{The menu bar}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  m/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=3pt,
+            font=\scriptsize\sffamily,text width=34mm,minimum height=8mm},
+  h/.style={m,draw=accent!65,fill=accent!12,text=accent!55!black},
+]
+  \node[m] (i0) {\texttt{Start / Pause}};
+  \node[m] (i1) {\texttt{Restart}};
+  \node[m] (i2) {\texttt{Skip}};
+  \node[m] (i3) {\texttt{Stop}};
+  \node[m] (i4) {\texttt{Finish overtime}};
+  \node[m] (i5) {\texttt{Show timer}};
+  \node[m] (i6) {\texttt{Settings...}};
+  \node[m] (i7) {\texttt{Statistics...}};
+  \node[m] (i8) {\texttt{Reset session counter}};
+  \node[h] (i9) {\texttt{Quit}};
+  \foreach \n in {i0,i1,i2,i3,i4,i5,i6,i7,i8,i9}
+    \draw[ethin, softink!35] (\n.south) -- ++(0,-3mm);
+  \node[note, below=5mm of i4, text width=110mm] {%
+    The same ten items exist in both shells. In the egui shell they are produced by
+    \file{native.rs}; in the AppKit shell by \file{mac\_shell.rs}. The tags are identical,
+    so the \texttt{match} in \texttt{act:} and the \texttt{match} in \texttt{logic()}
+    agree by construction.};
+\end{tikzpicture}
+\caption{Ten menu items. The first item's title tracks the run state, so the menu bar
+always says \texttt{Start}, \texttt{Pause}, or \texttt{Resume}.}
+\label{fig:menubar}
+\end{figure}

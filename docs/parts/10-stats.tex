@@ -1,0 +1,131 @@
+\clearpage
+\section{Statistics: constant memory by construction}
+
+\file{stats.rs} has a one-line summary in its module doc: \emph{``Streaming CSV storage
+and a fixed seven-day cache: memory does not grow with history.''} Everything in the
+file exists to make that sentence true.
+
+\subsection{The on-disk format}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=softink!30,line width=0.5pt] (0,0) rectangle (150,46);
+  % header
+  \node[anchor=west,font=\tiny\sffamily\bfseries,text=softink] at (4,40)
+    {\texttt{epoch\_seconds, duration\_seconds, activity, completed}};
+  % rows
+  \foreach \y/\e/\s/\a/\c in {
+    32/1759218604/1500/0/1,
+    24/17592187544/300/1/1,
+    16/17592187844/120/0/0,
+    8/17592187964/60/2/0}
+  {
+    \node[anchor=west,font=\tiny\sffamily] at (4,\y) {\texttt{\e, \s, \a, \c}};
+  }
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (4,4)
+    {\texttt{activity}: 0 = Session, 1 = ShortBreak, 2 = LongBreak};
+  \node[anchor=west,font=\tiny\sffamily,text=softink] at (4,-2)
+    {\texttt{completed}: 1 if the activity ran to the end, 0 if it was skipped or stopped};
+\end{tikzpicture}
+\caption{One line per activity. The file is append-only, so the only write is
+\texttt{writeln!} at the end.}
+\label{fig:csv}
+\end{figure}
+
+\subsection{The scanner: fixed buffers, no allocation}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{read 8192 bytes}\\\scriptsize into a stack array};
+  \node[b] (b) {\textbf{walk the bytes}\\\scriptsize append to a 256-byte line buffer};
+  \node[k] (c) {\textbf{line longer than 255?}\\\texttt{overflow = true}\\\scriptsize the line is dropped, not buffered};
+  \node[b] (d) {\textbf{newline?}\\\texttt{Entry::parse(\&line[..len])}};
+  \node[g] (e) {\textbf{valid?}\\\texttt{visit(entry)}\\\scriptsize otherwise silently skipped};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e);
+\end{tikzpicture}
+\caption{\texttt{scan()} uses two fixed stack buffers. A corrupt multi-megabyte line
+costs one boolean, not a allocation.}
+\label{fig:scan}
+\end{figure}
+
+\begin{lstlisting}[caption={\file{stats.rs} lines 190--192. The two buffers are the whole
+memory story.}]
+let mut chunk = [0; 8192];   // read buffer, on the stack
+let mut line  = [0; 256];   // line buffer, on the stack
+let (mut len, mut overflow) = (0, false);
+\end{lstlisting}
+
+\subsection{The cache: seven days, always}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  c/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=34mm,minimum height=10mm},
+  h/.style={c,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[c] (a) {\textbf{request}\\\texttt{daily\_totals(day, completed\_only)}};
+  \node[h] (b) {\textbf{cache hit?}\\\texttt{cache.day == day \&\&\\cache.completed\_only == completed\_only}};
+  \node[c] (c) {\textbf{miss: scan the file}\\\scriptsize fold each entry into \texttt{series[(date - day + 6)]}};
+  \node[c] (d) {\textbf{store}\\\texttt{Cache \{ day, completed\_only, series \}}};
+  \node[c] (e) {\textbf{invalidate}\\\texttt{*self.cache.borrow\_mut() = None}\\\scriptsize on \texttt{record()} and \texttt{reset()}};
+  \draw[e] (a)--(b); \draw[e] (b)-- node[vlabel, right, font=\tiny] {yes} (d);
+  \draw[e] (b)-- node[vlabel, left, font=\tiny] {no} (c); \draw[e] (c)--(d);
+  \draw[ethin, softink!40, dashed] (e) -- (b);
+\end{tikzpicture}
+\caption{The cache is a \texttt{RefCell<Option<Cache>>}, so \texttt{StatsStore} can stay
+\texttt{\&self} in \texttt{record()} and still invalidate itself.}
+\label{fig:cache}
+\end{figure}
+
+\subsection{What the totals count}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{34mm} p{52mm} p{52mm}@{}}
+\toprule
+\textbf{Field} & \textbf{Incremented when} & \textbf{Notes} \\
+\midrule
+\texttt{sessions} & a \texttt{Session} entry with \texttt{completed = true} & skipped sessions do not count \\
+\texttt{breaks} & a break entry with \texttt{completed = true} & short and long combined \\
+\texttt{long\_breaks} & a \texttt{LongBreak} entry with \texttt{completed = true} & a subset of \texttt{breaks} \\
+\texttt{skipped} & any entry with \texttt{completed = false} & regardless of activity \\
+\texttt{session\_seconds} & every \texttt{Session} entry & completed or not \\
+\texttt{break\_seconds} & every break entry & completed or not \\
+\bottomrule
+\end{tabular}
+\caption{\texttt{Totals::add}. The asymmetry is deliberate: seconds are always counted,
+but the counters only count completed activities.}
+\end{table}
+
+\subsection{Export and reset}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=42mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\textbf{export\_csv(path)}};
+  \node[k] (b) {\textbf{guard}\\\texttt{path == self.path} $\rightarrow$ error\\\scriptsize the log cannot overwrite itself};
+  \node[b] (c) {\textbf{write}\\\texttt{date,epoch\_seconds,duration\_seconds,\\activity,completed}};
+  \node[g] (d) {\textbf{rename}\\\texttt{.csv.tmp} $\rightarrow$ \texttt{.csv}};
+  \node[b] (e) {\textbf{reset()}};
+  \node[k] (f) {\textbf{guard}\\\texttt{NotFound} is not an error};
+  \node[g] (g) {\textbf{invalidate}\\\texttt{*self.cache.borrow\_mut() = None}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d);
+  \draw[e] (e)--(f); \draw[e] (f)--(g);
+\end{tikzpicture}
+\caption{Both operations are atomic and both invalidate the cache. The export guard is
+the only place in the file that returns an error for a reason other than I/O.}
+\label{fig:export}
+\end{figure}

@@ -1,0 +1,115 @@
+\clearpage
+\section{What the tests actually prove}
+
+There are 31 tests. They are all in \texttt{\#[cfg(test)]} modules inside the files they
+test, which means they compile with the same \texttt{cfg} gates as the code.
+
+\subsection{The test map}
+
+\noindent\textbf{\textcolor{pastel!45!black}{\texttt{timer.rs}}}\\[0.4em]
+\hspace{1.4em}14 tests\par
+\begin{itemize}[leftmargin=1.4em,itemsep=0.15em,topsep=0.1em]
+\item \texttt{starts\_idle\_\allowbreak on\_a\_session} --- initial state is Idle/Session with the full duration
+\item \texttt{session\_cycles\_\allowbreak into\_short\_then\_long\_breaks} --- the 4th finished session earns a LongBreak
+\item \texttt{skip\_moves\_\allowbreak on\_without\_counting\_a\_session} --- skipping does not increment the counter
+\item \texttt{disable\_breaks\_\allowbreak jumps\_straight\_back\_to\_a\_session} --- the setting is honoured in \texttt{advance()}
+\item \texttt{disable\_long\_breaks\_\allowbreak keeps\_only\_short\_breaks} --- the cycle counter still runs
+\item \texttt{pause\_stops\_\allowbreak elapsed\_time} --- elapsed is frozen across a pause
+\item \texttt{stop\_resets\_\allowbreak the\_current\_activity} --- elapsed goes to zero, activity is kept
+\item \texttt{restart\_clears\_\allowbreak progress\_but\_keeps\_running} --- the run state survives a restart
+\item \texttt{progress\_and\_\allowbreak remaining\_track\_the\_activity} --- both are derived from elapsed
+\item \texttt{remaining\_display\_\allowbreak rounds\_up\_whole\_seconds} --- a fresh timer shows 25:00, not 24:59
+\item \texttt{exact\_and\_\allowbreak fractional\_rounding\_and\_deadlines} --- \texttt{next\_display\_change()} returns the complement
+\item \texttt{skipped\_session\_at\_cycle\_boundary\_\allowbreak does\_not\_\allowbreak schedule\_long\_break} --- the \texttt{completion == Finished} check
+\item \texttt{running\_duration\_change\_\allowbreak clamps\_actual\_progress} --- \texttt{saturating\_sub} prevents underflow
+\item \texttt{new\_settings\_\allowbreak reshape\_the\_current\_activity} --- \texttt{apply\_settings()} recomputes the duration
+\end{itemize}
+
+\noindent\textbf{\textcolor{pastel!45!black}{\texttt{app.rs}}}\\[0.4em]
+\hspace{1.4em}5 tests\par
+\begin{itemize}[leftmargin=1.4em,itemsep=0.15em,topsep=0.1em]
+\item \texttt{completion\_records\_\allowbreak and\_auto\_starts\_break} --- the CSV row is written before the advance
+\item \texttt{skip\_does\_not\_\allowbreak count\_completion\_or\_long\_break} --- skipped sessions stay out of the long-break cycle
+\item \texttt{sleep\_only\_\allowbreak resumes\_previously\_running\_timer} --- the \texttt{paused\_for\_sleep} handshake
+\item \texttt{settings\_dirty\_\allowbreak and\_hide\_request} --- the dirty flag and the hide flag are independent
+\item \texttt{expiration\_and\_\allowbreak overtime\_notify\_once} --- the \texttt{notified} guard
+\end{itemize}
+
+\noindent\textbf{\textcolor{pastel!45!black}{\texttt{config.rs}}}\\[0.4em]
+\hspace{1.4em}3 tests\par
+\begin{itemize}[leftmargin=1.4em,itemsep=0.15em,topsep=0.1em]
+\item \texttt{round\_trip} --- \texttt{parse(serialize(s))} == \texttt{s}
+\item \texttt{invalid\_input\_\allowbreak and\_ranges} --- out-of-range values are clamped, garbage is ignored
+\item \texttt{old\_theme\_keys\_\allowbreak still\_load} --- \texttt{theme=mint} and \texttt{theme=mono} both parse
+\end{itemize}
+
+\noindent\textbf{\textcolor{pastel!45!black}{\texttt{stats.rs}}}\\[0.4em]
+\hspace{1.4em}5 tests\par
+\begin{itemize}[leftmargin=1.4em,itemsep=0.15em,topsep=0.1em]
+\item \texttt{totals\_filter\_\allowbreak incomplete\_and\_cover\_seven\_days} --- the 7-day window and the completed-only filter
+\item \texttt{export\_has\_\allowbreak five\_columns\_and\_original\_timestamp} --- the export format and the self-overwrite guard
+\item \texttt{oversized\_and\_\allowbreak malformed\_lines\_are\_ignored} --- the 256-byte line buffer
+\item \texttt{record\_and\_\allowbreak reset\_invalidate\_cache} --- the cache cannot serve stale totals
+\item \texttt{calendar\_and\_\allowbreak duration\_format} --- the day-index maths and the \texttt{1h 5m} format
+\end{itemize}
+
+\noindent\textbf{\textcolor{mint!60!black}{\texttt{ui/main.rs}}} and \textbf{\textcolor{mint!60!black}{\texttt{theme.rs}}}\\[0.4em]
+\hspace{1.4em}2 tests\par
+\begin{itemize}[leftmargin=1.4em,itemsep=0.15em,topsep=0.1em]
+\item \texttt{accent\_comes\_\allowbreak from\_the\_palette} --- the palette is wired into the UI
+\item \texttt{every\_theme\_kind\_\allowbreak maps\_to\_a\_palette} --- all five themes produce a valid palette
+\end{itemize}
+
+Every test creates its own temporary directory and removes it at the end, so the suite
+can run in parallel and never touches the real \texttt{\$HOME}. The two green entries
+are the only tests that touch egui types; the rest run with no UI compiled in.
+
+\subsection{The four tests that pin down the subtle rules}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{52mm} p{88mm}@{}}
+\toprule
+\textbf{Test} & \textbf{What it would catch} \\
+\midrule
+\texttt{skipped\_session\_at\_cycle\_\allowbreak boundary\_\allowbreak does\_not\_\allowbreak schedule\_\allowbreak long\_break} & moving the \texttt{completed\_sessions} increment into the shared path, or dropping the \texttt{completion == Finished} check from \texttt{due\_long} \\
+\texttt{expiration\_and\_\allowbreak overtime\_notify\_once} & removing the \texttt{notified} guard, or re-raising \texttt{show\_requested} on every tick \\
+\texttt{sleep\_only\_\allowbreak resumes\_\allowbreak previously\_\allowbreak running\_\allowbreak timer} & resuming on wake unconditionally, which would restart a timer the user had paused themselves \\
+\texttt{running\_duration\_change\_\allowbreak clamps\_actual\_progress} & a settings change making \texttt{remaining()} underflow instead of saturating \\
+\bottomrule
+\end{tabular}
+\caption{Four tests, each guarding a single line that would otherwise be easy to break.}
+\end{table}
+
+\subsection{What is not tested}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=44mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+]
+  \node[k] (a) {\textbf{no UI tests}\\\scriptsize neither shell has a test};
+  \node[k] (b) {\textbf{no AppKit tests}\\\scriptsize \file{mac\_shell.rs} and \file{hotkeys.rs} have no \texttt{\#[cfg(test)]}};
+  \node[k] (c) {\textbf{no integration tests}\\\scriptsize nothing launches the binary};
+  \node[b] (d) {\textbf{what replaces them}\\\scriptsize \file{smoke-macos.applescript}};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d);
+\end{tikzpicture}
+\caption{The gap is structural: the shells are thin translation layers over platform
+APIs, and the logic they translate is fully covered.}
+\label{fig:gaps}
+\end{figure}
+
+\subsection{Running them}
+
+\begin{lstlisting}[caption={The whole suite, and the two builds it must pass on.}]
+cargo test                      # core + AppKit shell
+cargo test --features egui-ui   # core + egui shell
+\end{lstlisting}
+
+\keybox{accent}{%
+\textbf{One suite, two binaries.} Because the core is shared, the same 29 tests run in
+both builds. The only difference is that the egui build additionally compiles
+\code{theme.rs} and \code{ui/}, which is why \code{accent\_comes\_\allowbreak from\_the\_palette}
+and \code{every\_theme\_kind\_\allowbreak maps\_to\_a\_palette} only exist in that configuration.}

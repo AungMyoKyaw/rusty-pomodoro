@@ -1,0 +1,218 @@
+\clearpage
+\section{The timer state machine}
+
+\file{src/timer.rs} is 479 lines and imports exactly one thing:
+\texttt{std::time::Duration}. It is the only file in the project that decides what
+happens next, and it has no idea a user interface exists.
+
+\subsection{Two orthogonal dimensions}
+
+The machine has two independent state variables, and almost every bug in a hand-rolled
+timer comes from confusing them.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  st/.style={rounded corners=2pt,draw=pastel!45!black,fill=corefill,align=center,
+             inner sep=5pt,font=\small\sffamily,minimum height=9mm,minimum width=27mm},
+  stc/.style={st,draw=accent!70,fill=accent!16,text=accent!55!black,line width=1.2pt},
+  hd/.style={font=\scriptsize\sffamily\bfseries,text=softink},
+  cell/.style={font=\tiny\sffamily,align=center,inner sep=3pt},
+]
+  % RunState row
+  \node[hd] at (-3.6,2.5) {\textbf{RunState} --- is time passing?};
+  \node[st] (idle)   at (-3.6,1.5) {Idle};
+  \node[st] (run)    at ( 0.0,1.5) {Running};
+  \node[st] (paused) at ( 3.6,1.5) {Paused};
+
+  % Activity row
+  \node[hd] at (-3.6,-0.9) {\textbf{Activity} --- what is being timed?};
+  \node[st] (sess)  at (-3.6,-1.9) {Session};
+  \node[st] (sb)    at ( 0.0,-1.9) {Short Break};
+  \node[st] (lb)    at ( 3.6,-1.9) {Long Break};
+
+  % arrows within RunState
+  \draw[er] (idle)  -- node[vlabel, above, font=\tiny] {\texttt{start()}} (run);
+  \draw[es] (run)   -- node[vlabel, above, font=\tiny] {\texttt{pause()}} (paused);
+  \draw[es] (paused)-- node[vlabel, above, font=\tiny] {\texttt{start()}} (run);
+  \draw[e]  (idle)  -- node[vlabel, above, font=\tiny] {\texttt{toggle()}} (paused);
+
+  % arrows within Activity
+  \draw[ethin, pastel!70!black] (sess) -- node[vlabel, above, font=\tiny] {\texttt{finish()}} (sb);
+  \draw[ethin, pastel!70!black] (sb)   -- node[vlabel, above, font=\tiny] {\texttt{finish()}} (sess);
+  \draw[ethin, pastel!70!black] (sess) to[bend right=28] node[vlabel, below, font=\tiny, text=accent!55!black]
+        {\texttt{finish()} at a cycle boundary} (lb);
+  \draw[ethin, pastel!70!black] (lb)   -- node[vlabel, below, font=\tiny] {\texttt{finish()}} (sess);
+
+  % the cross product
+  \draw[er, very thick] (-3.6,-0.35) -- (3.6,-0.35) node[midway, above, font=\tiny] {};
+  \node[stc, minimum width=74mm] (prod) at (0,-2.9)
+    {\texttt{Timer} stores both at once: \quad \texttt{activity: Activity} \quad + \quad \texttt{state: RunState}\\[1mm]
+     \tiny so ``a paused long break'' and ``a running session'' are ordinary states};
+  \draw[er] (prod.north) -- (-3.6,-2.2);
+  \draw[er] (prod.north) -- (3.6,-2.2);
+\end{tikzpicture}
+\caption{Tomito-RS keeps a \emph{product} state, not a flat enum. ``Idle Session'' and
+``Running Session'' share the same activity and the same duration but differ entirely
+in behaviour, so splitting them keeps each rule in one place.}
+\label{fig:states}
+\end{figure}
+
+\subsection{Time is not stored; it is derived}
+
+This is the single most important design decision in \file{timer.rs}. The struct does
+\emph{not} keep a countdown that is decremented once a second. It keeps a timestamp and
+asks the clock:
+
+\begin{lstlisting}[caption={The four lines that make \texttt{Timer} tick-free.}]
+pub fn elapsed(&self) -> Duration {
+    match self.started_at {
+        Some(start) => self.elapsed + start.elapsed(),   // running: frozen + live
+        None        => self.elapsed,                      // idle/paused: frozen only
+    }
+}
+pub fn remaining(&self) -> Duration {
+    self.duration.saturating_sub(self.elapsed())          // saturates: no underflow
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=softink!30,line width=0.5pt,rounded corners=2pt] (0,0) rectangle (150,52);
+  % axis
+  \draw[-stealth, draw=ink!60] (8,26) -- (144,26);
+  \node[anchor=south,font=\tiny\sffamily,text=softink] at (8,28) {t=0};
+
+  % frozen segment
+  \fill[pastel!55] (8,18) rectangle (46,24);
+  \node[anchor=east,font=\tiny\sffamily,text=pastel!45!black] at (8,21) {\texttt{elapsed}};
+  \node[anchor=north,font=\tiny\sffamily,text=softink] at (27,17) {running 0--18\,s};
+
+  % live segment
+  \fill[mint!45] (46,18) rectangle (96,24);
+  \node[anchor=north,font=\tiny\sffamily,text=mint!60!black] at (71,17) {running 18--38\,s};
+  \draw[er, line width=1pt] (46,34) -- (46,25);
+  \node[anchor=south,font=\tiny\sffamily,text=accent!55!black] at (46,35) {\texttt{pause()}};
+
+  % paused segment
+  \fill[soft!60, draw=softink!40] (96,18) rectangle (132,24);
+  \node[anchor=north,font=\tiny\sffamily,text=softink] at (114,17) {paused 38--50\,s};
+  \draw[er] (96,34) -- (96,25);
+  \node[anchor=south,font=\tiny\sffamily,text=accent!55!black] at (96,35) {\texttt{start()}};
+  \draw[er] (132,34) -- (132,25);
+  \node[anchor=south,font=\tiny\sffamily,text=accent!55!black] at (132,35) {\texttt{pause()}};
+
+  % annotation
+  \draw[decorate,decoration={brace,amplitude=3pt}, thick, mint!70!black]
+     (46,12) -- (132,12) node[midway,below,font=\tiny\sffamily,text=mint!60!black]
+     {here the field \texttt{elapsed} is frozen; the wall clock moves, the timer does not};
+  \node[anchor=west,font=\tiny\sffamily,text=softink,align=left] at (12,6)
+    {Because elapsed is recomputed on demand, a missed or late repaint can never make the timer drift.};
+\end{tikzpicture}
+\caption{The two-part elapsed time. \texttt{elapsed} holds the accumulated total;
+\texttt{started\_at} holds the moment the current running stretch began.}
+\label{fig:elapsed}
+\end{figure}
+
+Three consequences follow for free:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=0.3em]
+  \item \textbf{No drift.} There is no ``subtract one every tick'', so a late wake-up, a
+        blocked main thread, or a machine that was busy cannot make the timer lose time.
+  \item \textbf{Pause is exact.} \texttt{pause()} folds the live part into the frozen part
+        and drops the timestamp; the number cannot move afterwards.
+  \item \textbf{Overtime falls out.} \texttt{remaining()} uses \texttt{saturating\_sub}, so
+        once elapsed passes duration it simply pins at zero and
+        \texttt{elapsed() - duration()} becomes the overtime count.
+\end{itemize}
+
+\subsection{The transition table}
+
+\begin{table}[H]
+\centering\small
+\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\small\begin{tabular}{@{}p{20mm} p{18mm} p{20mm} p{70mm}@{}}
+\toprule
+\textbf{Method} & \textbf{From} & \textbf{To} & \textbf{What it does to the fields} \\
+\midrule
+\texttt{start()} & Idle / Paused & Running & if Idle \emph{and} elapsed $\ge$ duration, reset elapsed to 0; set \texttt{started\_at = Clock::now()} \\
+\texttt{pause()} & Running & Paused & \texttt{elapsed += started\_at.elapsed()}, then \texttt{started\_at = None} \\
+\texttt{toggle()} & any & flip & dispatches to \texttt{pause()} or \texttt{start()} \\
+\texttt{stop()} & any & Idle & \texttt{elapsed = 0}, \texttt{started\_at = None}. Activity is \emph{kept} \\
+\texttt{restart()} & any & unchanged & \texttt{elapsed = 0}; re-stamp \texttt{started\_at} only if Running \\
+\texttt{skip()} & any & Idle, next activity & \texttt{advance(Skipped)} \\
+\texttt{finish()} & any & Idle, next activity & \texttt{advance(Finished)} \\
+\texttt{apply\_settings()} & any & unchanged & folds running time in, then recomputes \texttt{duration} \\
+\bottomrule
+\end{tabular}
+\caption{\file{timer.rs}. \texttt{stop} and \texttt{restart} are the pair people confuse:
+stop rewinds \emph{and} goes Idle, restart rewinds but keeps Running.}
+\end{table}
+
+\subsection{\texttt{advance}: where the Pomodoro rules live}
+
+\begin{lstlisting}[caption={\file{timer.rs} lines 270--299. This function is the Pomodoro
+specification; nothing else in the codebase contains a rule.}]
+fn advance(&mut self, completion: Completion) -> Completion {
+    let finished = self.activity;
+    if completion == Completion::Finished && finished == Activity::Session {
+        self.completed_sessions = self.completed_sessions.saturating_add(1);
+    }
+    let next = match finished {
+        Activity::Session => {
+            let cycle = self.settings.long_break_cycle.max(1);
+            let due_long = completion == Completion::Finished
+                && self.completed_sessions > 0
+                && self.completed_sessions.is_multiple_of(cycle);
+            if self.settings.disable_breaks      { Activity::Session }
+            else if due_long && !self.settings.disable_long_breaks { Activity::LongBreak }
+            else                                 { Activity::ShortBreak }
+        }
+        Activity::ShortBreak | Activity::LongBreak => Activity::Session,
+    };
+    self.activity = next;
+    self.duration = duration_for(next, self.settings);
+    self.elapsed = Duration::ZERO;
+    self.started_at = None;
+    self.state = RunState::Idle;
+    completion
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  q/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\tiny\sffamily,minimum height=7mm,text width=34mm},
+  yesb/.style={q,draw=mint!70!black,fill=mint!20,text=mint!60!black},
+  n/.style={q,draw=accent!60,fill=accent!10,text=accent!55!black},
+]
+  \node[q] (a) at (0,0) {\textbf{finished} what?};
+  \node[q] (b) at (0,-1.4) {was it a \texttt{Session}?};
+  \node[yesb] (c) at (0,-2.8) {\textbf{yes}: count it\\\texttt{completed\_sessions += 1}};
+  \node[q] (d) at (0,-4.2) {\texttt{disable\_breaks}?};
+  \node[yesb] (e) at (5.0,-4.2) {\textbf{yes}: next is another \texttt{Session}};
+  \node[q] (f) at (0,-5.6) {is \texttt{completed \% cycle == 0}\emph{and} finished (not skipped)?};
+  \node[yesb] (g) at (5.0,-5.6) {\textbf{yes}, long breaks on: \texttt{LongBreak}};
+  \node[yesb] (h) at (0,-7.0) {\textbf{otherwise}: \texttt{ShortBreak}};
+  \node[q] (i) at (5.0,-7.0) {a break always returns to \texttt{Session}};
+
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d);
+  \draw[es] (d) -- node[vlabel, above, font=\tiny] {yes} (e);
+  \draw[e] (d) -- node[vlabel, left, font=\tiny] {no} (f);
+  \draw[es] (f) -- node[vlabel, above, font=\tiny] {yes} (g);
+  \draw[e] (f) -- node[vlabel, left, font=\tiny] {no} (h);
+  \draw[ethin, pastel!70!black] (e) -- (i);
+  \draw[ethin, pastel!70!black] (g) -- (i);
+\end{tikzpicture}
+\caption{The decision tree of \texttt{advance()}. The highlighted boxes are the only
+places in the whole codebase where the answer to ``what comes next?'' is decided.}
+\label{fig:advance}
+\end{figure}
+
+\keybox{accent}{%
+\textbf{The subtle line.} \code{due\_long} requires \code{completion == Completion::Finished}.
+If the user skips a session that happens to land on a cycle boundary, the long break is
+\emph{not} scheduled --- and \code{completed\_sessions} is not incremented either, so the
+cycle counter stays aligned. The test \code{skipped\_session\_at\_cycle\_boundary\_does\_not\_schedule\_long\_break}
+in \file{timer.rs} exists precisely to pin this down.}

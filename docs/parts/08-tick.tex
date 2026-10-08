@@ -1,0 +1,120 @@
+\clearpage
+\section{\texttt{tick()}: the one function that runs every second}
+
+Everything the app does once a second goes through \texttt{App::tick()}. It is 23 lines
+and it is the only place where the core decides that something has changed.
+
+\begin{lstlisting}[caption={\file{app.rs} lines 133--155, complete.}]
+pub fn tick(&mut self) {
+    if self.timer.state() != RunState::Running { return; }        // (1) idle: do nothing
+    if self.timer.remaining().is_zero() {                        // (2) the second hit zero
+        if !self.notified {
+            self.notified = true;
+            self.notify_requested = true;
+            if self.settings.show_on_finish { self.show_requested = true; }
+        }
+        if !self.settings.overtime { self.complete_current(); }  // (3) or keep running
+    }
+    let second = self.display_seconds();                         // (4) did the label change?
+    if second != self.last_second {
+        self.last_second = second;
+        self.tick_requested = self.settings.ticking_sound
+            && !(self.settings.mute_ticking_on_break && self.timer.activity().is_break());
+    }
+}
+\end{lstlisting}
+
+\subsection{The four decisions, in order}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  d/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  yesb/.style={d,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+  n/.style={d,draw=accent!60,fill=accent!10,text=accent!55!black},
+]
+  \node[d] (s) {\textbf{(1)} is the timer Running?};
+  \node[n] (r) {\textbf{no} $\rightarrow$ \texttt{return}\\\scriptsize nothing else runs};
+  \node[d] (z) {\textbf{(2)} is \texttt{remaining()} zero?};
+  \node[yesb] (nt) {\textbf{yes} $\rightarrow$ raise \texttt{notify\_requested}\\\scriptsize once, guarded by \texttt{notified}};
+  \node[d] (ov) {\textbf{(3)} is \texttt{overtime} off?};
+  \node[yesb] (cc) {\textbf{yes} $\rightarrow$ \texttt{complete\_current()}\\\scriptsize record, advance, maybe auto-start};
+  \node[d] (ds) {\textbf{(4)} did \texttt{display\_seconds()} change?};
+  \node[yesb] (tk) {\textbf{yes} $\rightarrow$ raise \texttt{tick\_requested}\\\scriptsize if ticking is enabled for this activity};
+
+  \draw[e] (s) -- node[vlabel, right, font=\tiny] {no} (r);
+  \draw[e] (s) -- node[vlabel, left, font=\tiny] {yes} (z);
+  \draw[e] (z) -- node[vlabel, right, font=\tiny] {yes} (nt);
+  \draw[e] (nt) -- (ov);
+  \draw[e] (z) -- node[vlabel, left, font=\tiny] {no} (ds);
+  \draw[e] (ov) -- node[vlabel, right, font=\tiny] {yes} (cc);
+  \draw[e] (ov) -- node[vlabel, left, font=\tiny] {no} (ds);
+  \draw[e] (cc) -- (ds);
+  \draw[e] (ds) -- node[vlabel, right, font=\tiny] {yes} (tk);
+\end{tikzpicture}
+\caption{\texttt{tick()} as a decision tree. Note that step (4) runs even when the
+activity just completed, so the tick sound and the completion sound cannot collide.}
+\label{fig:ticktree}
+\end{figure}
+
+\subsection{The \texttt{notified} guard}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \draw[draw=softink!30,line width=0.5pt] (0,0) rectangle (150,40);
+  \draw[-stealth, draw=ink!60] (8,20) -- (144,20);
+  \foreach \x in {20,45,70,95,120} {
+    \draw[softink!40] (\x,17) -- (\x,23);
+    \node[anchor=north,font=\tiny\sffamily,text=softink] at (\x,15) {\texttt{tick()}};
+  }
+  \fill[accent!40] (20,14) rectangle (45,17);
+  \node[anchor=south,font=\tiny\sffamily,text=accent!55!black] at (32,24)
+    {\texttt{remaining()} hits zero};
+  \node[anchor=south,font=\tiny\sffamily,text=softink] at (70,24)
+    {\texttt{notify\_requested} raised exactly once};
+  \node[anchor=south,font=\tiny\sffamily,text=softink] at (120,24)
+    {\texttt{notified = true} blocks every later tick};
+\end{tikzpicture}
+\caption{Without the \texttt{notified} field, every subsequent tick would re-raise
+\texttt{notify\_requested} and the shell would play the sound once per second forever.}
+\label{fig:notified}
+\end{figure}
+
+\subsection{Recording an activity}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  b/.style={rounded corners=2pt,draw=ink!50,fill=white,align=center,inner sep=4pt,
+            font=\scriptsize\sffamily,text width=40mm,minimum height=10mm},
+  k/.style={b,draw=accent!65,fill=accent!12,text=accent!55!black},
+  g/.style={b,draw=mint!70!black,fill=mint!18,text=mint!60!black},
+]
+  \node[b] (a) {\texttt{record(completed)}\\\scriptsize called by \texttt{skip()} and \texttt{complete\_current()}};
+  \node[b] (b) {\texttt{elapsed = timer.elapsed()}\\\scriptsize \emph{or} \texttt{duration} if completed};
+  \node[g] (c) {\texttt{stats.record(activity, seconds, completed)}};
+  \node[b] (d) {append one line to \texttt{activities.csv}};
+  \node[k] (e) {\texttt{*self.cache.borrow\_mut() = None}\\\scriptsize the 7-day cache is invalidated};
+  \draw[e] (a)--(b); \draw[e] (b)--(c); \draw[e] (c)--(d); \draw[e] (d)--(e);
+\end{tikzpicture}
+\caption{Recording is a single append plus a cache invalidation. There is no read-modify-write
+of the file, so a crash cannot corrupt the log.}
+\label{fig:record}
+\end{figure}
+
+\begin{lstlisting}[caption={\file{app.rs} lines 100--110. The \texttt{max} is what makes a
+completed session count as a full session even if the user let it run into overtime.}]
+fn record(&mut self, completed: bool) {
+    let elapsed = self.timer.elapsed().as_secs();
+    let seconds = if completed {
+        elapsed.max(self.timer.duration().as_secs())
+    } else {
+        elapsed
+    };
+    if let Err(error) = self.stats.record(self.timer.activity(), seconds, completed) {
+        self.status = format!("Activity save failed: {error}");
+    }
+}
+\end{lstlisting}
