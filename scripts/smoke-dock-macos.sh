@@ -2,11 +2,11 @@
 # macOS Accessibility permission is required to exercise the actual Dock item.
 set -eu
 cd "$(dirname "$0")/.."
-work=$(mktemp -d /tmp/tomito-dock-smoke.XXXXXX)
+work=$(mktemp -d /tmp/rusty-pomodoro-dock-smoke.XXXXXX)
 pid=""
 register="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
-bundle="$work/Tomito Dock Test $$.app"
-name="Tomito Dock Test $$"
+bundle="$work/Rusty Pomodoro Dock Test $$.app"
+name="Rusty Pomodoro Dock Test $$"
 cleanup() {
     if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
     "$register" -u "$bundle" 2>/dev/null || true
@@ -14,14 +14,14 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 xcrun swiftc -sdk "$(xcrun --show-sdk-path)" scripts/dock-info-macos.swift -framework AppKit -o "$work/info"
-cp -R "dist/Tomito Portable.app" "$bundle"
-plutil -replace CFBundleIdentifier -string "io.local.tomito-portable.docktest.$$" "$bundle/Contents/Info.plist"
+cp -R "dist/Rusty Pomodoro Slint.app" "$bundle"
+plutil -replace CFBundleIdentifier -string "io.local.rusty-pomodoro-portable.docktest.$$" "$bundle/Contents/Info.plist"
 plutil -replace CFBundleName -string "$name" "$bundle/Contents/Info.plist"
 plutil -replace CFBundleDisplayName -string "$name" "$bundle/Contents/Info.plist"
 codesign --force --sign - "$bundle"
 mkdir "$work/config"
 printf 'hide_on_launch=true\n' > "$work/config/settings.conf"
-TOMITO_CONFIG_DIR="$work/config" TOMITO_BENCHMARK=1 "$bundle/Contents/MacOS/tomito-slint" > "$work/app.log" 2>&1 &
+RUSTY_POMODORO_CONFIG_DIR="$work/config" RUSTY_POMODORO_BENCHMARK=1 "$bundle/Contents/MacOS/rusty-pomodoro-slint" > "$work/app.log" 2>&1 &
 pid=$!
 sleep 2
 "$work/info" "$pid" > "$work/before.json"

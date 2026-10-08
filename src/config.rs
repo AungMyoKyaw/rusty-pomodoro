@@ -243,6 +243,20 @@ fn clamp(text: &str, min: u32, max: u32, default: u32) -> u32 {
     .map(|v| v.clamp(min, max))
     .unwrap_or(default)
 }
+/// Read the renamed variable first, then the previous product prefix for compatibility.
+pub fn var_os(name: &str) -> Option<std::ffi::OsString> {
+  std::env::var_os(name).or_else(|| {
+    name
+      .strip_prefix("RUSTY_POMODORO_")
+      .and_then(|suffix| std::env::var_os(format!("TOMITO_{suffix}")))
+  })
+}
+pub fn var(name: &str) -> Result<String, std::env::VarError> {
+  match var_os(name) {
+    Some(value) => value.into_string().map_err(std::env::VarError::NotUnicode),
+    None => Err(std::env::VarError::NotPresent),
+  }
+}
 pub fn config_dir(app_name: &str) -> PathBuf {
   #[cfg(target_os = "macos")]
   if let Some(home) = std::env::var_os("HOME") {

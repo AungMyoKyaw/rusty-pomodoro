@@ -1,4 +1,4 @@
-// Original Tomito Portable stopwatch mark. No proprietary Tomito artwork is used.
+// Original Rusty Pomodoro stopwatch mark. No proprietary Tomito artwork is used.
 // Build with xcrun swiftc -sdk "$(xcrun --show-sdk-path)" -framework AppKit;
 // run the resulting executable with <output-directory>.
 import AppKit

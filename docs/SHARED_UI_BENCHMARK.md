@@ -26,7 +26,7 @@ binary-size reduction or a full Tomito parity claim.
 | egui/glow | 2,689,680 | 2.565 |
 | Slint/Winit/software | 7,708,256 | 7.351 |
 
-Separately ad-hoc signed Slint artifact: `dist/Tomito Portable.app`.
+Separately ad-hoc signed Slint artifact: `dist/Rusty Pomodoro Slint.app`.
 Its executable is 7,663,568 bytes; complete bundle is 7,670,561 logical file bytes.
 Signing changes the Mach-O signature storage, explaining the difference from Cargo.
 The benchmark below used the Cargo release executable, not the re-signed copy.
@@ -127,9 +127,9 @@ No cross-platform feature-parity or pixel-identical result is claimed.
 Run from the project directory:
 
 ```sh
-cargo run --locked --release --features slint-ui --bin tomito-slint
+cargo run --locked --release --features slint-ui --bin rusty-pomodoro-slint
 ./scripts/package-slint-macos.sh
-open "dist/Tomito Portable.app"
+open "dist/Rusty Pomodoro Slint.app"
 ./scripts/benchmark-ui-macos.sh --rounds 1 --samples 3
 ```
 
@@ -138,8 +138,8 @@ and uses temporary settings/history directories. It does not replace the native 
 or stop the existing user processes.
 
 ```sh
-TOMITO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin tomito-slint -- --smoke
-TOMITO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin tomito-slint -- --smoke-expiry
+RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin rusty-pomodoro-slint -- --smoke
+RUSTY_POMODORO_CONFIG_DIR="$(mktemp -d)" cargo run --release --features slint-ui --bin rusty-pomodoro-slint -- --smoke-expiry
 ```
 
 Smoke modes refuse an unset or nonempty test directory, preventing accidental history

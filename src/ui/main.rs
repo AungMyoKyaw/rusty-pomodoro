@@ -213,7 +213,7 @@ mod tests {
 
   #[test]
   fn accent_comes_from_the_palette() {
-    let dir = std::env::temp_dir().join(format!("tomito-ui-test-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("rusty-pomodoro-ui-test-{}", std::process::id()));
     let app = App::new(
       crate::config::Settings::default(),
       dir.join("settings.conf"),

@@ -4,7 +4,7 @@ CARGO ?= cargo
 RUSTUP ?= rustup
 WINDOWS_LINKER ?= x86_64-w64-mingw32-gcc
 LINUX_LINKER ?= x86_64-unknown-linux-gnu-gcc
-SLINT_ARGS := --locked --release --features slint-ui --bin tomito-slint
+SLINT_ARGS := --locked --release --features slint-ui --bin rusty-pomodoro-slint
 
 .PHONY: help dev fmt fmt-check build build-macos build-windows build-linux package-macos
 
@@ -20,7 +20,7 @@ help:
 		'make package-macos Package native AppKit app bundle'
 
 dev:
-	$(CARGO) run --locked --features slint-ui --bin tomito-slint
+	$(CARGO) run --locked --features slint-ui --bin rusty-pomodoro-slint
 
 fmt:
 	$(CARGO) fmt --all

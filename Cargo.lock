@@ -4286,7 +4286,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tomito-rs"
+name = "rusty-pomodoro"
 version = "0.1.0"
 dependencies = [
  "eframe",
