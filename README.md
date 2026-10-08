@@ -108,6 +108,7 @@ It needs macOS Accessibility permission for the invoking automation host.
 
 ## Scope and performance
 
+See [current architecture and UX review](docs/ARCHITECTURE.md) for module responsibilities, UI findings and current validation scope.
 See [behavior inventory](docs/REVERSE_ENGINEERING.md) for evidence and explicit parity gaps.
 See [measurements](docs/PERFORMANCE.md) for binary/bundle size, physical footprint, RSS, CPU and profiling commands.
 

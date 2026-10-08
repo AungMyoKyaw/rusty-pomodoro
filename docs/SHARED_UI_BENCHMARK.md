@@ -99,7 +99,7 @@ behavior are still OS-specific.
 macOS integrations: tray countdown/control menu, system sound/preview, global shortcuts,
 sleep/wake behavior, hide/restore and keep-in-front. Other-platform integration modules
 are stubs. Windows/Linux close exits; hide-on-launch/start is ignored there to avoid
-stranding a trayless application. Screen-reader integration is not enabled.
+stranding a trayless application. Slint accessibility is enabled for labelled controls and statistics rows; platform screen-reader behavior has not been validated.
 
 **Only macOS was built and run here. Windows/Linux builds and runtime remain unverified.**
 No cross-platform feature-parity or pixel-identical result is claimed.
