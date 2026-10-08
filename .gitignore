@@ -1,6 +1,11 @@
 /target/
 /dist/
 
+# Website browser captures and local preview artifacts
+/.playwright-cli/
+/.impeccable/review/
+/_site/
+
 # Python cache
 __pycache__/
 *.py[cod]

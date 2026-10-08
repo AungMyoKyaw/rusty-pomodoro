@@ -1,5 +1,7 @@
 # Rusty Pomodoro
 
+**[Product website](https://aungmyokyaw.github.io/rusty-pomodoro/)**
+
 A Rust Pomodoro desktop app rebuilt from the behavior of the installed Tomito app.
 
 The default macOS app uses native AppKit. Windows and Linux use the shared Slint UI; those platforms build, but runtime behavior is not tested.

@@ -1,0 +1,53 @@
+async (page) => {
+  const base = page.url().split("#")[0];
+  const assert = (condition, message) => { if (!condition) throw new Error(message); };
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(base);
+  await page.evaluate(() => document.fonts.ready);
+  for (const width of [1440, 1280, 800, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Overflow at " + width);
+  }
+  await page.getByRole("button", { name: "Your settings", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector("#gallery-image").getAttribute("src").includes("settings"));
+  assert(await page.locator("#gallery-image").getAttribute("alt").then(x => x.includes("duration")), "Settings screenshot alt text");
+  await page.getByRole("button", { name: "Your statistics", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector("#gallery-image").getAttribute("src").includes("statistics"));
+  assert(await page.locator("#screen-caption").innerText().then(x => x.includes("fresh history")), "Statistics context");
+  await page.getByRole("button", { name: "Timer", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector("#gallery-image").getAttribute("src").includes("timer"));
+  await page.getByRole("button", { name: "Short break", exact: true }).click();
+  assert(await page.locator("#demo-time").innerText() === "05:00", "Short break duration");
+  await page.locator("#toggle-timer").click();
+  await page.waitForTimeout(1200);
+  assert(await page.locator("#demo-time").innerText() !== "05:00", "Timer ticks");
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  const paused = await page.locator("#demo-time").innerText();
+  await page.waitForTimeout(1200);
+  assert(await page.locator("#demo-time").innerText() === paused, "Pause holds time");
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  assert(await page.locator("#demo-time").innerText() === "05:00", "Reset restores phase");
+  await page.getByRole("button", { name: "Long break", exact: true }).click();
+  assert(await page.locator("#demo-time").innerText() === "15:00", "Long break duration");
+  await page.getByRole("button", { name: "Focus", exact: true }).click();
+  assert(await page.locator("#demo-time").innerText() === "25:00", "Focus duration");
+  await page.getByText("Is this a web app?", { exact: true }).click();
+  assert(await page.locator("details").first().getAttribute("open") !== null, "FAQ expands");
+  await page.getByRole("link", { name: "Get Rusty Pomodoro", exact: true }).click();
+  assert(page.url().endsWith("#get-app"), "Install anchor navigation");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert(await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior) === "auto", "Reduced motion");
+  await page.goto(base);
+  await page.keyboard.press("Tab");
+  assert(await page.evaluate(() => document.activeElement.textContent.trim()) === "Skip to content", "Keyboard skip link");
+  const noJs = await page.context().browser().newContext({ javaScriptEnabled: false });
+  const plain = await noJs.newPage();
+  await plain.goto(base);
+  assert(await plain.getByRole("link", { name: "Get Rusty Pomodoro", exact: true }).isVisible(), "No-JS primary action");
+  assert(await plain.getByRole("link", { name: "macOS build instructions", exact: true }).count() === 1, "No-JS install");
+  assert(await plain.locator(".demo-controls").isHidden(), "No-JS inactive controls hidden");
+  await noJs.close();
+  assert(errors.length === 0, "Browser errors: " + errors.join(", "));
+  return { result: "PASS", widths: [1440, 1280, 800, 390, 320], checks: ["screenshots", "start", "pause", "reset", "phases", "FAQ", "navigation", "reduced motion", "keyboard", "no JavaScript"], errors };
+}

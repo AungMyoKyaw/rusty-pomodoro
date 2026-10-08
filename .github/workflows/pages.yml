@@ -1,0 +1,67 @@
+name: Product website
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Check website assets and timer
+        run: bun test website/tests
+      - name: Check patch whitespace
+        run: git diff --check
+      - name: Prepare only public website files
+        run: |
+          mkdir -p _site
+          cp website/index.html website/styles.css website/app.js website/timer.js website/.nojekyll _site/
+          cp -R website/assets _site/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: _site
+          include-hidden-files: true
+          retention-days: 1
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: website
+          path: _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
