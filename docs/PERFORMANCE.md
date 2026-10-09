@@ -8,7 +8,7 @@ egui, but its executable is substantially larger; it is not a size optimization.
 Measured locally on Apple Silicon, macOS 27.0.1 (26A434), Rust 1.99.0.
 Source app: Tomito 2.3.5. These are measurements, not universal guarantees.
 
-## Shipped build
+## Historical AppKit build (not the current Slint app)
 
 - Cargo release executable: **372,032 bytes** (363 KiB).
 - Executable inside the signed bundle: **369,984 bytes** (361 KiB); re-signing changes signature storage.
@@ -41,16 +41,18 @@ Footprint, RSS, virtual size and GPU allocations must not be conflated.
 - Optional egui: **76.3 MiB** idle footprint and **263.5 MiB** startup peak.
   An earlier egui sample measured 93.2 MiB footprint; GPU/driver state varies.
 
-The native default reduced measured main-window footprint about 32% versus Tomito
+The historical native build reduced measured main-window footprint about 32% versus Tomito
 and about 71% versus the final egui sample. It is not a sub-10-MiB desktop app.
 Controls and audio load additional platform resources. Closed auxiliary windows are released.
 
 Idle CPU samples reached 0.0%. A running sample immediately after interaction reported 2.2%;
 that is not a steady-state CPU benchmark. No universal RAM or CPU ceiling is promised.
 
-## Optimization choices
+## Historical AppKit optimization choices
 
-- AppKit is the default. egui is an opt-in Cargo feature.
+Slint is now the default. The following choices describe the retired AppKit frontend, not the current Slint executable.
+
+- AppKit was the default. egui remains an opt-in Cargo feature.
 - Native build has no GPU context, backbuffers, texture atlas, rasterizer or embedded fonts.
 - Auxiliary windows are created lazily and released when closed.
 - No polling or worker thread. One one-shot NSTimer exists only while running.
@@ -63,7 +65,9 @@ that is not a steady-state CPU benchmark. No universal RAM or CPU ceiling is pro
 - Optional egui: glow, no default fonts/AccessKit/wgpu/Wayland/persistence, one licensed font,
   one pass, fixed-size timer typography, and display-boundary repaint scheduling.
 
-## Reproduce
+## Measure the current Slint app
+
+The commands below now package Slint; they do not reproduce the historical AppKit sizes or memory figures above. Use `scripts/benchmark-ui-macos.sh` for a current Slint/egui comparison.
 
 ```sh
 ./scripts/package-macos.sh

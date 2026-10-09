@@ -4,12 +4,11 @@
 
 [![License: AGPL v3+](https://img.shields.io/badge/License-AGPL%20v3%2B-blue.svg?style=flat-square)](LICENSE)
 ![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust&logoColor=white)
-![macOS AppKit](https://img.shields.io/badge/macOS-AppKit-555555?style=flat-square&logo=apple&logoColor=white)
 ![Slint UI](https://img.shields.io/badge/UI-Slint-2379F4?style=flat-square)
 
 A Rust Pomodoro desktop app rebuilt from the behavior of the installed Tomito app.
 
-The default macOS app uses native AppKit. Windows and Linux use the shared Slint UI; those platforms build, but runtime behavior is not tested.
+Slint is the default UI on macOS, Windows, and Linux. macOS retains tray, Dock, sound, shortcut, and sleep/wake integrations. Windows and Linux builds exist, but runtime behavior is not tested.
 
 ## Quick start
 
@@ -19,7 +18,7 @@ Run the shared UI locally:
 make dev
 ```
 
-Build the native macOS app and open it:
+Build the Slint macOS app and open it:
 
 ```sh
 make package-macos

@@ -12,15 +12,15 @@ This guide describes the checked-out repository. For behavior observed in the in
 - `src/app.rs`: application orchestration, settings and timer effects. It does not draw UI or call platform APIs.
 - `src/lib.rs`: shared modules. `theme.rs` is compiled only for egui.
 
-### Three frontends
+### Desktop frontends
 
 | Entry point | UI | Platform role |
 | --- | --- | --- |
-| `src/main.rs` | Native AppKit by default on macOS; optional egui via `egui-ui` | AppKit windows, menu bar, Carbon shortcuts, sounds, sleep/wake |
-| `src/slint_main.rs` | Slint UI via `slint-ui` | Shared software-rendered desktop UI; optional macOS tray, Dock, sounds, shortcuts and sleep/wake |
+| `src/main.rs` | Default Slint UI; optional egui via `egui-ui` | Shared software-rendered desktop UI; macOS tray, Dock, sounds, shortcuts and sleep/wake |
+| `src/slint_main.rs` | Compatibility binary for the same Slint UI | Preserves existing Slint commands and release executable names |
 | `src/egui_shell.rs` | Optional eframe/egui UI | AppKit status item and native sound on macOS |
 
-The default macOS binary is AppKit-only. The optional shared Slint binary uses Winit and the software renderer. Windows/Linux launch through Slint or egui; only macOS behavior has been validated. The Slint UI has its own settings draft/validation flow; egui settings apply as edited, while native AppKit settings save on Apply or window close.
+Default builds enable `slint-ui` and use Winit with the software renderer on every desktop platform. Only macOS runtime behavior has been validated. Slint draws the timer, settings, and statistics; platform APIs still provide macOS system integrations. `src/mac_shell.rs` is retired source and is not compiled by any entry point. Slint has a settings draft/validation flow; optional egui settings apply as edited.
 
 ### Data flow
 

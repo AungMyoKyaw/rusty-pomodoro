@@ -463,16 +463,34 @@ fn save(state: &State) {
   }
   refresh(state);
 }
+// Override only this launch; never change the user's saved hide-on-launch setting.
+fn configure_startup(app: &mut App, force_show: bool) -> bool {
+  let show = force_show || !app.settings.hide_on_launch;
+  app.hide_requested = !show;
+  show
+}
+
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
   // Both values specified: SLINT_BACKEND cannot silently substitute a GPU renderer.
   let benchmark = config::var_os("RUSTY_POMODORO_BENCHMARK").is_some();
   let smoke =
     std::env::args().any(|a| matches!(a.as_str(), "--smoke" | "--smoke-expiry" | "--smoke-visual"));
-  slint::BackendSelector::new()
+  let backend = slint::BackendSelector::new()
     .backend_name("winit".into())
     .renderer_name("software".into())
-    .with_winit_window_attributes_hook(move |attributes| attributes.with_active(!benchmark))
-    .select()?;
+    .with_winit_window_attributes_hook(move |attributes| attributes.with_active(!benchmark));
+  #[cfg(target_os = "macos")]
+  let backend = {
+    use slint::winit_030::winit::platform::macos::{ActivationPolicy, EventLoopBuilderExtMacOS};
+    let mut builder =
+      slint::winit_030::winit::event_loop::EventLoop::<slint::winit_030::SlintEvent>::with_user_event();
+    // A normal desktop app must have a Dock item, not an accessory/agent policy.
+    builder
+      .with_activation_policy(ActivationPolicy::Regular)
+      .with_activate_ignoring_other_apps(!benchmark);
+    backend.with_winit_event_loop_builder(builder)
+  };
+  backend.select()?;
   let ui = PortableWindow::new()?;
   ui.set_native_features(cfg!(target_os = "macos"));
   let dir = config::var_os("RUSTY_POMODORO_CONFIG_DIR")
@@ -484,11 +502,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
   {
     return Err("Smoke tests require an explicitly set, empty RUSTY_POMODORO_CONFIG_DIR".into());
   }
-  let app = App::new(
+  let mut app = App::new(
     Settings::load(&dir.join("settings.conf")),
     dir.join("settings.conf"),
     StatsStore::new(dir.join("activities.csv")),
   );
+  let show_on_launch = configure_startup(&mut app, std::env::args().any(|a| a == "--show"));
   let values = flags(app.settings);
   let switches = Rc::new(VecModel::from(
     OPTIONS
@@ -661,6 +680,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
   });
   ui.show()?;
+  // The macOS dev launcher needs our real PID, not open -W's unreliable lookup.
+  if let Some(path) = std::env::var_os("RUSTY_POMODORO_DEV_PID_FILE") {
+    std::fs::write(path, format!("{}\n", std::process::id()))?;
+  }
   match config::var("RUSTY_POMODORO_BENCHMARK_SCENARIO").as_deref() {
     Ok("running") => state.borrow_mut().app.toggle(),
     Ok("statistics") => {
@@ -683,6 +706,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
           native.install_dock_handler();
         }
       }
+      // Winit's window and macOS Regular activation policy now exist. Showing before
+      // this point alone leaves command-line launches behind the terminal.
+      s.borrow_mut().app.show_requested = show_on_launch;
       refresh(&s);
     }
   });
@@ -1014,6 +1040,28 @@ fn start_expiry_smoke(state: State) {
 #[cfg(test)]
 mod tests {
   use super::*;
+  #[test]
+  fn startup_visibility_preserves_saved_preferences() {
+    for (hidden, force_show, expected_show) in [
+      (false, false, true),
+      (false, true, true),
+      (true, false, false),
+      (true, true, true),
+    ] {
+      let settings = Settings {
+        hide_on_launch: hidden,
+        ..Settings::default()
+      };
+      let mut app = App::new(
+        settings,
+        std::path::PathBuf::new(),
+        StatsStore::new(std::path::PathBuf::new()),
+      );
+      assert_eq!(configure_startup(&mut app, force_show), expected_show);
+      assert_eq!(app.hide_requested, !expected_show);
+      assert_eq!(app.settings, settings);
+    }
+  }
   #[test]
   fn settings_flags_round_trip() {
     let s = Settings::default();

@@ -55,7 +55,7 @@
         <article><h3>A rhythm you can return to.</h3><p>Move between focus sessions, short breaks, and a longer rest. Set the durations and cycle length to match the way you work.</p></article>
         <article><h3>Make yourself at home.</h3><p>Choose from five accent themes. Adjust timer behavior and use keyboard shortcuts to stay in your flow.</p></article>
         <article><h3>See where your time went.</h3><p>Review today's focus and your last seven days. Export your history as CSV when you want to look a little closer.</p></article>
-        <article><h3>Built in Rust. Not a browser wrapper.</h3><p>The desktop app runs compiled Rust with a software-rendered Slint interface or native macOS AppKit controlled by Rust. No Tauri, no WebView, and no HTML or JavaScript app runtime.</p></article>
+        <article><h3>Built in Rust. Not a browser wrapper.</h3><p>The desktop app runs compiled Rust with a software-rendered Slint interface. No Tauri, no WebView, and no HTML or JavaScript app runtime.</p></article>
       </div>
     </section>
     <section class="inside wrap section-space" aria-labelledby="inside-title">
@@ -88,11 +88,9 @@
       <div class="install-grid">
         <article class="install install-homebrew" id="homebrew-install" aria-labelledby="homebrew-title"><h3 id="homebrew-title">Install on macOS <span>Homebrew · Shared Slint UI</span></h3><p>Install the app shown on this page with <a href="https://brew.sh/">Homebrew</a>. The cask selects the Apple Silicon or Intel build for your Mac. No Rust toolchain or source build is needed.</p><pre><code>brew tap AungMyoKyaw/homebrew-tap
 brew install --cask rusty-pomodoro</code></pre><a class="text-link" href="https://github.com/AungMyoKyaw/homebrew-tap/blob/master/Casks/rusty-pomodoro.rb">Homebrew cask details <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><p class="install-note">macOS 11 or later. Installs Rusty Pomodoro Slint.app. Ad-hoc signed, not Developer ID signed or notarized; the cask removes quarantine during installation. Update with <code>brew upgrade --cask rusty-pomodoro</code>.</p></article>
-        <article class="install"><h3>macOS <span>Native AppKit</span></h3><p>A native macOS interface, with menu-bar controls, sounds, global shortcuts, and sleep/wake support.</p><pre><code>make package-macos
+        <article class="install"><h3>Build on macOS <span>Shared Slint UI</span></h3><p>The same Slint interface, with menu-bar controls, sounds, global shortcuts, and sleep/wake support.</p><pre><code>make package-macos
 open "dist/Rusty Pomodoro.app"</code></pre><a class="text-link" href="https://github.com/AungMyoKyaw/rusty-pomodoro/blob/master/docs/DEVELOPMENT.md">macOS build instructions <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><p class="install-note">Local bundles are ad-hoc signed, not notarized.</p></article>
-        <article class="install"><h3>Across desktops <span>Shared Slint UI</span></h3><p>The interface shown on this page. Build for macOS, Windows, or Linux using the shared Rust timer engine.</p><pre><code>cargo run --locked --release \
-  --features slint-ui \
-  --bin rusty-pomodoro-slint</code></pre><a class="text-link" href="https://github.com/AungMyoKyaw/rusty-pomodoro/blob/master/docs/DEVELOPMENT.md">Cross-platform build instructions <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><p class="install-note">Windows and Linux builds exist; runtime is not yet tested. macOS-only system integrations are not available there.</p></article>
+        <article class="install"><h3>Across desktops <span>Shared Slint UI</span></h3><p>The interface shown on this page. Build for macOS, Windows, or Linux using the shared Rust timer engine.</p><pre><code>cargo run --locked --release</code></pre><a class="text-link" href="https://github.com/AungMyoKyaw/rusty-pomodoro/blob/master/docs/DEVELOPMENT.md">Cross-platform build instructions <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><p class="install-note">Windows and Linux builds exist; runtime is not yet tested. macOS-only system integrations are not available there.</p></article>
       </div>
       <p class="release-note">Prefer a direct download? Get packaged builds for macOS, Windows, and Linux from <a href="https://github.com/AungMyoKyaw/rusty-pomodoro/releases">GitHub Releases</a>. Building from source requires the repository and a Rust toolchain.</p>
     </section>

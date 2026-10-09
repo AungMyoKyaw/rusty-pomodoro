@@ -4,7 +4,7 @@ CARGO ?= cargo
 RUSTUP ?= rustup
 WINDOWS_LINKER ?= x86_64-w64-mingw32-gcc
 LINUX_LINKER ?= x86_64-unknown-linux-gnu-gcc
-SLINT_ARGS := --locked --release --features slint-ui --bin rusty-pomodoro-slint
+SLINT_ARGS := --locked --release --bin rusty-pomodoro
 
 .PHONY: help dev fmt fmt-check build build-macos build-windows build-linux package-macos
 
@@ -17,10 +17,10 @@ help:
 		'make build-macos  Build macOS arm64 and x86_64 binaries' \
 		'make build-windows Build Windows x86_64 binary (MinGW cross-linker required)' \
 		'make build-linux  Build Linux x86_64 binary (cross-linker required)' \
-		'make package-macos Package native AppKit app bundle'
+		'make package-macos Package Slint macOS app bundle'
 
 dev:
-	$(CARGO) run --locked --features slint-ui --bin rusty-pomodoro-slint
+	CARGO="$(CARGO)" ./scripts/dev.sh
 
 fmt:
 	$(CARGO) fmt --all

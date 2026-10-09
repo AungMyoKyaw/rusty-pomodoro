@@ -22,7 +22,7 @@ Introduce Rusty Pomodoro, demonstrate its real interface, and help visitors run 
 
 ## Capabilities and Constraints
 
-Repository evidence: focus, short-break and long-break timers; configurable cycles and durations; five accent themes; day/week statistics and CSV export. Native macOS uses AppKit. Shared Slint builds for macOS, Windows and Linux. Windows/Linux runtime behavior is not tested; their builds lack macOS-only tray, sounds, global shortcuts and sleep hooks. macOS bundles are ad-hoc signed and not notarized. No published GitHub releases were present during website creation. The website must not invent binary downloads, adoption counts, testimonials or performance guarantees.
+Repository evidence: focus, short-break and long-break timers; configurable cycles and durations; five accent themes; day/week statistics and CSV export. Slint is the default desktop UI on macOS, Windows and Linux. macOS system integrations use platform APIs; the timer, settings and statistics use Slint. Windows/Linux runtime behavior is not tested; their builds lack macOS-only tray, sounds, global shortcuts and sleep hooks. macOS bundles are ad-hoc signed and not notarized. No published GitHub releases were present during website creation. The website must not invent binary downloads, adoption counts, testimonials or performance guarantees.
 
 ## Brand Commitments
 

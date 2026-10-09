@@ -44,7 +44,7 @@ jobs:
       - name: Build Linux release binary
         if: matrix.platform == 'linux'
         run: |
-          cargo build --locked --release --features slint-ui --bin rusty-pomodoro-slint
+          cargo build --locked --release --bin rusty-pomodoro-slint
           mkdir -p dist
           cp target/release/rusty-pomodoro-slint dist/rusty-pomodoro-slint
           tar -C dist -czf "dist/rusty-pomodoro-${GITHUB_REF_NAME}-${{ matrix.artifact }}.tar.gz" rusty-pomodoro-slint
@@ -53,7 +53,7 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          cargo build --locked --release --features slint-ui --bin rusty-pomodoro-slint
+          cargo build --locked --release --bin rusty-pomodoro-slint
           New-Item -ItemType Directory -Force dist | Out-Null
           Compress-Archive -Path target/release/rusty-pomodoro-slint.exe -DestinationPath "dist/rusty-pomodoro-${{ github.ref_name }}-${{ matrix.artifact }}.zip"
 

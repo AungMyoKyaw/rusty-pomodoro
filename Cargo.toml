@@ -1,11 +1,11 @@
 [package]
 name = "rusty-pomodoro"
 default-run = "rusty-pomodoro"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/AungMyoKyaw/rusty-pomodoro"
-description = "Low-memory Rust Pomodoro timer with native macOS UI and optional egui"
+description = "Rust Pomodoro timer with a shared Slint desktop UI"
 
 [[bin]]
 name = "rusty-pomodoro"
@@ -17,7 +17,7 @@ path = "src/slint_main.rs"
 required-features = ["slint-ui"]
 
 [features]
-default = []
+default = ["slint-ui"]
 egui-ui = ["dep:eframe", "dep:egui"]
 slint-ui = ["dep:slint"]
 

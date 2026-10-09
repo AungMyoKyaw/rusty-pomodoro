@@ -61,6 +61,10 @@ test("desktop Rust selling point is visible and distinguishes the website demo",
   const manifest = readFileSync(resolve(root, "../Cargo.toml"), "utf8");
   expect(manifest).not.toMatch(/\b(?:tauri|wry|webview)\b/i);
   expect(manifest).toContain('renderer-software');
+  expect(manifest).toContain('default = ["slint-ui"]');
+  expect(html).not.toContain("AppKit");
+  expect(html).toContain("cargo run --locked --release</code>");
+  expect(html).toContain("Build on macOS <span>Shared Slint UI</span>");
 });
 
 test("body copy and actions have accessible palette contrast", () => {

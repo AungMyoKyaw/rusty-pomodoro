@@ -7,7 +7,7 @@ python3 -m http.server 4173 --directory website
 bun test website/tests
 ```
 
-Open http://localhost:4173. The timer is an explicitly labeled demo, with no persistence or notifications. It uses elapsed monotonic time rather than counting interval callbacks. Screenshot controls progressively enhance a real, static screenshot. All install links and commands work without JavaScript. The macOS installation section leads with `brew tap AungMyoKyaw/homebrew-tap` and `brew install --cask rusty-pomodoro`, identifies the packaged shared Slint UI, and preserves the native AppKit source-build option. The desktop selling point is compiled Rust with no Tauri, WebView, or HTML/JavaScript app runtime; the website demo itself uses JavaScript.
+Open http://localhost:4173. The timer is an explicitly labeled demo, with no persistence or notifications. It uses elapsed monotonic time rather than counting interval callbacks. Screenshot controls progressively enhance a real, static screenshot. All install links and commands work without JavaScript. The macOS installation section leads with `brew tap AungMyoKyaw/homebrew-tap` and `brew install --cask rusty-pomodoro`, identifies the packaged shared Slint UI, and includes a source-build option for the same Slint interface. The desktop selling point is compiled Rust with no Tauri, WebView, or HTML/JavaScript app runtime; the website demo itself uses JavaScript.
 
 `.github/workflows/pages.yml` validates and deploys on changes to `website/` on `master`, or manual dispatch. Only HTML, CSS, JS and assets are uploaded: tests, documentation and design records are not published. Pages uses the GitHub Actions source. Public URL: https://aungmyokyaw.github.io/rusty-pomodoro/.
 

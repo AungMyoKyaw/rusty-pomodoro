@@ -14,14 +14,14 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 xcrun swiftc -sdk "$(xcrun --show-sdk-path)" scripts/dock-info-macos.swift -framework AppKit -o "$work/info"
-cp -R "dist/Rusty Pomodoro Slint.app" "$bundle"
+cp -R "dist/Rusty Pomodoro.app" "$bundle"
 plutil -replace CFBundleIdentifier -string "io.local.rusty-pomodoro-portable.docktest.$$" "$bundle/Contents/Info.plist"
 plutil -replace CFBundleName -string "$name" "$bundle/Contents/Info.plist"
 plutil -replace CFBundleDisplayName -string "$name" "$bundle/Contents/Info.plist"
 codesign --force --sign - "$bundle"
 mkdir "$work/config"
 printf 'hide_on_launch=true\n' > "$work/config/settings.conf"
-RUSTY_POMODORO_CONFIG_DIR="$work/config" RUSTY_POMODORO_BENCHMARK=1 "$bundle/Contents/MacOS/rusty-pomodoro-slint" > "$work/app.log" 2>&1 &
+RUSTY_POMODORO_CONFIG_DIR="$work/config" RUSTY_POMODORO_BENCHMARK=1 "$bundle/Contents/MacOS/rusty-pomodoro" > "$work/app.log" 2>&1 &
 pid=$!
 sleep 2
 "$work/info" "$pid" > "$work/before.json"

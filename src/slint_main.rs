@@ -1,4 +1,4 @@
-//! Shared software-rendered desktop UI; native and egui variants remain available.
+//! Compatibility entry point for the default Slint desktop UI.
 use rusty_pomodoro::{app, config, stats, timer};
 #[cfg(target_os = "macos")]
 mod hotkeys;

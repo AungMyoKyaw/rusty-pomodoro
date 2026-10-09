@@ -50,7 +50,6 @@ def main():
         parser.error("measurement values must be positive")
     args.out.mkdir(parents=True, exist_ok=True)
     variants = {
-        "native": ROOT / "dist/bench-native",
         "egui": ROOT / "dist/bench-egui",
         "slint": ROOT / "target/release/rusty-pomodoro-slint",
     }
@@ -62,7 +61,7 @@ def main():
             "No foreground activation requested; windows may be obscured by user's current app.",
             "Mouse/menu/hotkey input isolated while timing; scenario assertions stay enabled.",
             "Warmed filesystem/library caches, serial fresh processes, factory settings and empty history.",
-            "Slint/egui main content400x460 logical; native380x300 and statistics separate440x440.",
+            "Slint/egui use their current window defaults; native measurements are historical only.",
             "CPU percent calculated from ps accumulated-time delta over actual wall interval, not lifetime %cpu.",
             "vmmap physical footprint and RSS are different accounting metrics; peaks are vmmap-reported lifetime peaks.",
             "Statistics scenario opens statistics, not settings, at startup.",
