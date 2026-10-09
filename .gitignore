@@ -18,3 +18,6 @@ __pycache__/
 /docs/architecture.out
 /docs/architecture.toc
 /docs/missfont.log
+
+# macOS
+.DS_Store
